@@ -70,6 +70,68 @@
 .tv-hint{position:absolute;bottom:10px;right:56px;font-size:13px;opacity:.4}
 .tv-root{position:fixed;inset:0;background:#000;overflow:hidden}
 .tv-root .tv-stage{position:absolute;left:0;top:0}
+
+/* ---- phone layout (narrow or portrait screens); TV/desktop layout above is untouched ---- */
+.tv-root.tv-phone{overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.tv-phone .tv-stage{position:relative;width:100%;height:auto;min-height:100%;overflow:visible;transform:none!important;padding-bottom:28px;box-sizing:border-box}
+.tv-phone .tv-vid,.tv-phone .tv-wall,.tv-phone .tv-fx,.tv-phone .tv-drift,.tv-phone .tv-glow{position:fixed}
+.tv-phone .tv-top{padding:20px 16px 12px}
+.tv-phone .tv-title{font-size:26px}.tv-phone .tv-clock{font-size:22px;margin-top:4px}.tv-phone .tv-date{font-size:14px}
+.tv-phone .tv-stage .tv-gear{top:66px;right:16px;min-height:44px;min-width:44px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:14px;opacity:.85}
+.tv-phone .tv-stage.has-ticker{padding-top:40px}
+.tv-phone .tv-stage.has-ticker .tv-top{padding-top:20px}
+.tv-phone .tv-stage.has-ticker .tv-gear{top:106px}
+.tv-phone .tv-ticker{position:fixed;font-size:15px}
+.tv-phone .tv-tk-tag{padding-left:14px}
+.tv-phone .tv-widgets{grid-template-columns:1fr;gap:10px;padding:4px 16px 0}
+.tv-phone .tv-w{height:auto;min-height:0}
+.tv-phone .tv-rows,.tv-phone .tv-rows.nowidgets,.tv-phone .tv-stage.has-ticker .tv-rows{position:static;overflow:visible;top:auto}
+.tv-phone .tv-rows.scrolled{-webkit-mask-image:none;mask-image:none}
+.tv-phone .tv-row h3{margin:20px 16px 0;font-size:18px}
+.tv-phone .tv-track{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;padding:12px 16px 4px;overflow:visible}
+.tv-phone .tv-tile{flex:none;width:auto;height:auto;aspect-ratio:16/9;min-height:72px}
+.tv-phone .tv-tile.focus{transform:scale(1.03)}
+.tv-phone .tv-mono{font-size:34px}.tv-phone .tv-label{font-size:16px}
+.tv-phone .tv-hint{display:none}
+
+/* ---- touch & long-press menu ---- */
+.tv-root{-webkit-tap-highlight-color:transparent}
+.tv-tile,.tv-gear{-webkit-touch-callout:none;-webkit-user-drag:none}
+.tv-root:not(.tv-phone) .tv-stage{touch-action:none}
+.tv-phone .tv-tile,.tv-phone .tv-gear{touch-action:manipulation}
+.tv-root.tv-phone{scroll-snap-type:y proximity}
+.tv-phone .tv-row{scroll-snap-align:start;scroll-margin-top:52px}
+.tv-phone .tv-stage{scroll-snap-align:start}
+.tv-gear{z-index:4;cursor:pointer}
+.tv-menu-bg{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.35)}
+.tv-menu{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:380px;background:rgba(10,12,20,.96);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:16px 0 10px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.tv-menu h4{margin:0 22px 8px;font-size:15px;letter-spacing:1px;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-mi{padding:12px 22px;font-size:18px;min-height:44px;box-sizing:border-box;display:flex;align-items:center;cursor:pointer}
+.tv-mi.sel{background:rgba(255,255,255,.1);box-shadow:inset 4px 0 0 var(--accent)}
+.tv-phone .tv-menu-bg{position:fixed}
+.tv-phone .tv-menu{top:auto;bottom:0;left:0;right:0;width:auto;transform:none;border-radius:18px 18px 0 0;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.tv-toast{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);background:rgba(10,12,20,.94);border:1px solid rgba(255,255,255,.15);padding:10px 18px;border-radius:12px;font-size:16px;z-index:30;pointer-events:none}
+.tv-phone .tv-toast{position:fixed;bottom:24px;max-width:85vw;text-align:center}
+
+/* ---- outside the Firestick app: tiles that can only launch an installed app ---- */
+.tv-tile.tv-off{filter:grayscale(.85) brightness(.6)}
+.tv-tile.tv-off .tv-kind{background:rgba(0,0,0,.6)}
+
+/* ---- Theme panel by touch; TV look unchanged (buttons only appear on touch screens) ---- */
+.tv-ar{display:none}
+.tv-opt .vt{display:contents}
+.tv-hint-touch{display:none}
+.tv-opt{cursor:pointer}
+@media (any-pointer:coarse){
+  .tv-ar{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.08);font-size:13px;cursor:pointer}
+  .tv-opt .v{gap:6px}
+  .tv-opt .vt{min-width:104px;text-align:center;display:inline-flex;justify-content:center}
+  .tv-opt.sel .v:before,.tv-opt.sel .v:after{content:none}
+  .tv-opt{min-height:52px;padding-top:4px;padding-bottom:4px;box-sizing:border-box}
+  .tv-hint-remote{display:none}.tv-hint-touch{display:block}
+}
+.tv-phone .tv-panel{background:#0b0d16;box-shadow:0 -12px 40px rgba(0,0,0,.7),0 0 0 100vmax rgba(0,0,0,.45);position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;border-radius:18px 18px 0 0;max-height:85vh;overflow-y:auto;padding-bottom:max(12px,env(safe-area-inset-bottom));z-index:25}
+.tv-phone .tv-opt{padding-left:18px;padding-right:12px;font-size:17px}
 </style>
 <style>
 *{box-sizing:border-box}
@@ -275,10 +337,10 @@ function render(cfg,status){
   cfg.rows.forEach(function(row,r){
     h+='<section class="tv-row" data-wall="'+row.wall+'"><h3>'+esc(row.name)+(status[row.id]==='new'?'<span class="tv-badge new">NEW</span>':'')+'</h3><div class="tv-track">';
     row.tiles.forEach(function(t,c){
-      var st=status[t.id];
-      h+='<a class="tv-tile" href="'+esc(/^app:\/\//.test(t.url)?t.url:safeUrl(t.url))+'" data-kind="'+t.kind+'" data-pkg="'+esc(t.pkg)+'" data-r="'+r+'" data-c="'+c+'" style="background:linear-gradient(135deg,'+t.color+','+shade(t.color,-0.55)+')">'+
+      var st=status[t.id],off=cfg._browser&&t.kind!=='web'&&!/^https?:\/\/[^\/]/i.test(String(t.url).trim()||'');
+      h+='<a class="tv-tile'+(off?' tv-off':'')+'"'+(off?' aria-disabled="true"':'')+' href="'+esc(/^app:\/\//.test(t.url)?t.url:safeUrl(t.url))+'" data-kind="'+t.kind+'" data-pkg="'+esc(t.pkg)+'" data-r="'+r+'" data-c="'+c+'" style="background:linear-gradient(135deg,'+t.color+','+shade(t.color,-0.55)+')">'+
         '<span class="tv-mono">'+esc((t.label.trim()||'?').charAt(0).toUpperCase())+'</span><span class="tv-label">'+esc(t.label)+'</span>'+
-        (t.kind!=='web'?'<span class="tv-kind">'+(t.kind==='app'?'App':'↗ Deep link')+'</span>':'')+(st?'<span class="tv-badge '+st+'">'+(st==='new'?'NEW':'EDITED')+'</span>':'')+'</a>';
+        (t.kind!=='web'?'<span class="tv-kind">'+(off?'App only':t.kind==='app'?'App':'↗ Deep link')+'</span>':'')+(st?'<span class="tv-badge '+st+'">'+(st==='new'?'NEW':'EDITED')+'</span>':'')+'</a>';
     });
     if(!row.tiles.length)h+='<div class="tv-empty">Empty row</div>';
     h+='</div></section>';
@@ -288,12 +350,13 @@ function render(cfg,status){
 function nav(host,onOpen){
   var r=0,c=0;
   function groups(){var g=[],last=null;host.querySelectorAll('.tv-tile').forEach(function(t){if(t.dataset.r!==last){g.push([]);last=t.dataset.r}g[g.length-1].push(t)});return g}
-  function apply(){
+  function apply(byKey){
     host.querySelectorAll('.tv-tile.focus,.tv-gear.focus').forEach(function(e){e.classList.remove('focus')});
-    var gear=host.querySelector('.tv-gear');if(r<0){if(gear){gear.classList.add('focus');return gear}r=0}
+    var gear=host.querySelector('.tv-gear'),phone=host.classList.contains('tv-phone');if(r<0){if(gear){gear.classList.add('focus');if(phone&&byKey)host.scrollTop=0;return gear}r=0}
     var g=groups();if(!g.length)return null;
     r=Math.max(0,Math.min(r,g.length-1));c=Math.max(0,Math.min(c,g[r].length-1));
     var el=g[r][c];el.classList.add('focus');
+    if(phone&&byKey&&el.scrollIntoView)el.scrollIntoView({block:'nearest',inline:'nearest'});
     var tr=el.parentElement;
     if(el.offsetLeft-56<tr.scrollLeft)tr.scrollLeft=el.offsetLeft-56;
     else if(el.offsetLeft+el.offsetWidth+56>tr.scrollLeft+tr.clientWidth)tr.scrollLeft=el.offsetLeft+el.offsetWidth+56-tr.clientWidth;
@@ -319,11 +382,66 @@ function nav(host,onOpen){
       if(k==='ArrowLeft')c--;else if(k==='ArrowRight')c++;else if(k==='ArrowUp')r--;else if(k==='ArrowDown')r++;
       else if(k==='Enter'||k===' '){var el=apply();if(el&&onOpen)onOpen(el);return true}
       else return false;
-      if(r<-1)r=-1;if(r<0&&!host.querySelector('.tv-gear'))r=0;if(c<0)c=0;apply();return true;
+      if(r<-1)r=-1;if(r<0&&!host.querySelector('.tv-gear'))r=0;if(c<0)c=0;apply(true);return true;
     }
   };
 }
-function openTile(el){if(el.classList.contains('tv-gear')){togglePanel();return}if(window.FireTV){FireTV.open(el.getAttribute('href'),el.dataset.pkg||'',el.dataset.kind||'web')}else el.click()}
+function openTile(el){if(el.classList.contains('tv-gear')){togglePanel();return}if(el.classList.contains('tv-off')){toast('Opens only in the Firestick Home app');return}if(window.FireTV){FireTV.open(el.getAttribute('href'),el.dataset.pkg||'',el.dataset.kind||'web')}else location.href=el.href}
+/* ---- long-press / context menu: same look on TV, phone and PC; fully D-pad operable ---- */
+var menu={open:false,sel:0,el:null,items:[]};
+function toast(msg){if(!bootArgs)return;var st=bootArgs[0].querySelector('.tv-stage');if(!st)return;var o=st.querySelector('.tv-toast');if(o)o.remove();
+  st.insertAdjacentHTML('beforeend','<div class="tv-toast">'+esc(msg)+'</div>');var t=st.querySelector('.tv-toast');setTimeout(function(){if(t.parentNode)t.remove()},2200)}
+function menuItems(el){var href=el.getAttribute('href')||'',kind=el.dataset.kind||'web',web=/^https?:/i.test(href),it=[{t:'Open',a:'open'}];
+  if(window.FireTV&&kind!=='web'&&web)it.push({t:'Open website instead',a:'web'});
+  if(web&&navigator.clipboard&&!el.classList.contains('tv-off'))it.push({t:'Copy link',a:'copy'});
+  it.push({t:'Cancel',a:'close'});return it}
+function openMenu(el){if(!el||!el.classList.contains('tv-tile'))return;if(panel.open)togglePanel(false);menu={open:true,sel:0,el:el,items:menuItems(el)};drawMenu()}
+function closeMenu(){if(!menu.open)return false;menu.open=false;drawMenu();return true}
+function drawMenu(){if(!bootArgs)return;var st=bootArgs[0].querySelector('.tv-stage');if(!st)return;var o=st.querySelector('.tv-menu-bg');if(o)o.remove();if(!menu.open)return;
+  var lab=menu.el.querySelector('.tv-label'),h='<div class="tv-menu-bg"><div class="tv-menu" role="menu"><h4>'+esc(lab?lab.textContent:'')+'</h4>';
+  menu.items.forEach(function(x,i){h+='<div class="tv-mi'+(i===menu.sel?' sel':'')+'" role="menuitem" data-mi="'+i+'">'+x.t+'</div>'});
+  st.insertAdjacentHTML('beforeend',h+'</div></div>')}
+function menuAct(i){var x=menu.items[i],el=menu.el;closeMenu();if(!x)return;
+  if(x.a==='open')openTile(el);
+  else if(x.a==='web')FireTV.open(el.getAttribute('href'),'','web');
+  else if(x.a==='copy'){try{navigator.clipboard.writeText(el.href).then(function(){toast('Link copied')},function(){toast('Couldn\'t copy the link')})}catch(e){}}}
+function menuKey(e){var k=e.key;
+  if(k==='ArrowUp'){menu.sel=Math.max(0,menu.sel-1);drawMenu()}
+  else if(k==='ArrowDown'){menu.sel=Math.min(menu.items.length-1,menu.sel+1);drawMenu()}
+  else if(k==='Enter'||k===' ')menuAct(menu.sel);
+  else if(k==='Escape'||k==='Backspace'||k==='GoBack'||k==='ContextMenu')closeMenu();
+  return true}
+/* ---- touch / mouse: drives the SAME nav focus model as the remote ---- */
+function bindPointer(root){
+  var st=null,lp=0,eat=false;
+  function target(t){return t&&t.closest?t.closest('.tv-tile,.tv-gear'):null}
+  function overlay(t){return t&&t.closest&&t.closest('.tv-panel,.tv-menu-bg')}
+  function focus(el){var n=root._nav;if(!n)return;if(el.classList.contains('tv-gear'))n.set({r:-1,c:n.get().c});else n.focusEl(el)}
+  root.addEventListener('touchstart',function(e){clearTimeout(lp);eat=false;if(e.touches.length!==1){st=null;return}var t=e.touches[0];
+    st={x:t.clientX,y:t.clientY,at:Date.now(),el:target(e.target),moved:false,ov:!!overlay(e.target)};
+    if(st.el&&!st.ov)lp=setTimeout(function(){if(st&&!st.moved&&st.el.classList.contains('tv-tile')){eat=true;focus(st.el);openMenu(st.el)}},550)},{passive:true});
+  root.addEventListener('touchmove',function(e){if(!st)return;var t=e.touches[0];if(Math.abs(t.clientX-st.x)>10||Math.abs(t.clientY-st.y)>10){st.moved=true;clearTimeout(lp)}},{passive:true});
+  root.addEventListener('touchend',function(e){clearTimeout(lp);if(eat)setTimeout(function(){eat=false},450);if(!st)return;var s0=st;st=null;
+    if(s0.ov||menu.open||panel.open||!s0.moved||root.classList.contains('tv-phone'))return;   // phone layout scrolls natively
+    var t=e.changedTouches[0],dx=t.clientX-s0.x,dy=t.clientY-s0.y,n=root._nav;if(!n||Date.now()-s0.at>900||Math.max(Math.abs(dx),Math.abs(dy))<40)return;
+    eat=true;
+    if(Math.abs(dy)>=Math.abs(dx))n.key({key:dy<0?'ArrowDown':'ArrowUp'});      // swipe up = next row, like scrolling
+    else{var f=root.querySelector('.tv-tile.focus'),tr=f&&f.parentElement,step=f?Math.max(1,Math.floor(tr.clientWidth/(f.offsetWidth+22))-1):1;
+      for(var i=0;i<step;i++)n.key({key:dx<0?'ArrowRight':'ArrowLeft'})}
+    setTimeout(function(){eat=false},400)});
+  root.addEventListener('click',function(e){
+    if(eat){eat=false;e.preventDefault();e.stopPropagation();return}
+    if(menu.open){var mi=e.target.closest&&e.target.closest('.tv-mi');e.preventDefault();if(mi)menuAct(+mi.dataset.mi);else if(!e.target.closest('.tv-menu'))closeMenu();return}
+    if(panel.open){var pp=e.target.closest&&e.target.closest('.tv-panel'),gearHit=target(e.target);
+      if(pp){e.preventDefault();var row=e.target.closest('.tv-opt');if(!row)return;var i=+row.dataset.pi,ar=e.target.closest('.tv-ar'),o=panelOpts(root._cfg)[i];
+        if(ar){panel.sel=i;panelChange(i,+ar.dataset.d)}else if(o&&o.act){panel.sel=i;drawPanel();panelActivate(i)}
+        else{var wasSel=panel.sel===i;panel.sel=i;if(wasSel&&e.target.closest('.v'))panelChange(i,1);else drawPanel()}
+        return}
+      if(!gearHit||!gearHit.classList.contains('tv-gear')){e.preventDefault();togglePanel(false);return}}
+    if(overlay(e.target))return;
+    var el=target(e.target);if(!el)return;e.preventDefault();focus(el);openTile(el)},true);
+  root.addEventListener('contextmenu',function(e){var el=target(e.target);if(!el)return;e.preventDefault();if(menu.open||!el.classList.contains('tv-tile'))return;eat=false;focus(el);openMenu(el)});
+}
 var OVK='tv-theme',bootArgs=null;
 function loadOv(){try{return JSON.parse(localStorage.getItem(OVK))||{}}catch(e){return {}}}
 function saveOv(o){try{localStorage.setItem(OVK,JSON.stringify(o))}catch(e){}}
@@ -348,40 +466,45 @@ function drawPanel(){
   var old=stage.querySelector('.tv-panel');if(old)old.remove();if(!panel.open)return;
   var cfg=root._cfg,ops=panelOpts(cfg),h='<div class="tv-panel"><h4>Theme</h4>';
   ops.forEach(function(o,i){var vt='';if(!o.act){var cv=curVal(cfg,o.k),m=o.vals.filter(function(x){return x.v===cv})[0];vt=m?m.t:esc(String(cv))}
-    h+='<div class="tv-opt'+(o.act?' act':'')+(i===panel.sel?' sel':'')+'"><span>'+o.label+'</span><span class="v">'+vt+'</span></div>'});
-  h+='<p>&#9650;&#9660; choose &middot; &#9664;&#9654; change &middot; OK on Done to close. Saved on this TV.</p></div>';
+    h+='<div class="tv-opt'+(o.act?' act':'')+(i===panel.sel?' sel':'')+'" data-pi="'+i+'"><span>'+o.label+'</span><span class="v">'+(o.act?'':'<b class="tv-ar" data-d="-1" aria-label="Previous">&#9664;</b><span class="vt">'+vt+'</span><b class="tv-ar" data-d="1" aria-label="Next">&#9654;</b>')+'</span></div>'});
+  h+='<p class="tv-hint-remote">&#9650;&#9660; choose &middot; &#9664;&#9654; change &middot; OK on Done to close. Saved on this TV.</p><p class="tv-hint-touch">Tap &#9664; &#9654; to change. Saved on this device.</p></div>';
   stage.insertAdjacentHTML('beforeend',h);
 }
 function togglePanel(force){panel.open=force===undefined?!panel.open:force;if(panel.open)panel.sel=0;drawPanel();return panel.open}
+function panelChange(i,dir){var cfg=bootArgs[0]._cfg,o=panelOpts(cfg)[i];if(!o||o.act)return;
+  var cv=curVal(cfg,o.k),j=0;o.vals.forEach(function(x,n){if(x.v===cv)j=n});
+  j=(j+dir+o.vals.length)%o.vals.length;var nv=o.vals[j].v,ov=loadOv();
+  if(o.k==='wmode'){ov.showWidgets=nv!=='off';if(nv!=='off')ov.widgetStyle=nv}else ov[o.k]=nv;
+  saveOv(ov);rebuild()}
+function panelActivate(i){var o=panelOpts(bootArgs[0]._cfg)[i];if(!o)return;if(o.k==='_reset'){saveOv({});rebuild()}else if(o.k==='_close')togglePanel(false)}
 function panelKey(e){
   var root=bootArgs[0],cfg=root._cfg,ops=panelOpts(cfg),o=ops[panel.sel],k=e.key;
   if(k==='ArrowUp'){panel.sel=Math.max(0,panel.sel-1);drawPanel();return true}
   if(k==='ArrowDown'){panel.sel=Math.min(ops.length-1,panel.sel+1);drawPanel();return true}
   if(k==='Escape'||k==='Backspace'||k==='GoBack'){togglePanel(false);return true}
   if(k==='Enter'||k===' '){if(o.k==='_reset'){saveOv({});rebuild()}else togglePanel(false);return true}
-  if((k==='ArrowLeft'||k==='ArrowRight')&&!o.act){
-    var cv=curVal(cfg,o.k),i=0;o.vals.forEach(function(x,j){if(x.v===cv)i=j});
-    i=(i+(k==='ArrowRight'?1:-1)+o.vals.length)%o.vals.length;var nv=o.vals[i].v,ov=loadOv();
-    if(o.k==='wmode'){ov.showWidgets=nv!=='off';if(nv!=='off')ov.widgetStyle=nv}else ov[o.k]=nv;
-    saveOv(ov);rebuild();return true}
+  if((k==='ArrowLeft'||k==='ArrowRight')&&!o.act){panelChange(panel.sel,k==='ArrowRight'?1:-1);return true}
   return true;
 }
-function rebuild(){if(!bootArgs)return;var keep=panel.open,sel=panel.sel;boot.apply(null,bootArgs);panel.open=keep;panel.sel=sel;drawPanel()}
+function rebuild(){if(!bootArgs)return;var root=bootArgs[0],pos=root._nav?root._nav.get():null,sc=root.scrollTop,keep=panel.open,sel=panel.sel;boot.apply(null,bootArgs);if(pos)root._nav.set(pos);root.scrollTop=sc;panel.open=keep;panel.sel=sel;drawPanel()}
+/* phone layout: narrow screens, or portrait tablets. Fire TV / desktop always get the TV layout */
+function isPhone(){return innerWidth<=760||(innerWidth<=1024&&innerHeight>innerWidth)}
 function boot(root,cfg,opts){
   opts=opts||{};bootArgs=[root,cfg,opts];
   var ov=opts.noTheme?{}:loadOv(),merged={};for(var a in cfg)merged[a]=cfg[a];for(var b in ov)merged[b]=ov[b];
-  cfg=normalize(merged);if(ov.rowWalls===false)cfg.rowWalls=false;cfg._gear=!opts.noTheme;root._cfg=cfg;
+  cfg=normalize(merged);if(ov.rowWalls===false)cfg.rowWalls=false;cfg._gear=!opts.noTheme;cfg._browser=!window.FireTV;root._cfg=cfg;
   if(window.FireTV&&cfg.installedRow){try{var apps=JSON.parse(FireTV.apps());if(apps.length)cfg.rows.push({id:'installed',name:'My apps',wall:'',
     tiles:apps.map(function(a){var hsh=0;for(var i=0;i<a.label.length;i++)hsh=(hsh*31+a.label.charCodeAt(i))|0;
       return{id:'app-'+a.pkg,label:a.label,url:'app://'+a.pkg,color:'#'+('00000'+((hsh&0x7f7f7f)+0x202020).toString(16)).slice(-6),kind:'app',pkg:a.pkg}})})}catch(e){}}
   root.innerHTML=render(cfg);
   var stage=root.firstElementChild;
-  function fit(){var s=Math.min(innerWidth/1280,innerHeight/720);stage.style.transform='translate('+(innerWidth-1280*s)/2+'px,'+(innerHeight-720*s)/2+'px) scale('+s+')'}
+  function fit(){var ph=isPhone();root.classList.toggle('tv-phone',ph);if(ph){stage.style.transform='';return}
+    var s=Math.min(innerWidth/1280,innerHeight/720);stage.style.transform='translate('+(innerWidth-1280*s)/2+'px,'+(innerHeight-720*s)/2+'px) scale('+s+')'}
   fit();
   var n=nav(root,openTile);n.apply();
-  if(window.FireTV&&!root._clk){root._clk=1;root.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('.tv-tile');if(t){e.preventDefault();openTile(t)}})}
+  if(!root._ptr){root._ptr=1;bindPointer(root)}
   if(!root._bound){root._bound=true;addEventListener('resize',function(){if(root._fit)root._fit()});
-    addEventListener('keydown',function(e){if(!root._active||!root._active())return;if(panel.open&&bootArgs&&bootArgs[0]===root){panelKey(e);e.preventDefault();return}if(root._nav&&root._nav.key(e))e.preventDefault()})}
+    addEventListener('keydown',function(e){if(!root._active||!root._active())return;if(menu.open&&bootArgs&&bootArgs[0]===root){menuKey(e);e.preventDefault();return}if(panel.open&&bootArgs&&bootArgs[0]===root){panelKey(e);e.preventDefault();return}if(e.key==='ContextMenu'){var f=root.querySelector('.tv-tile.focus');if(f){openMenu(f);e.preventDefault()}return}if(root._nav&&root._nav.key(e))e.preventDefault()})}
   root._fit=fit;root._nav=n;root._active=opts.active||function(){return true};
   return n;
 }
@@ -397,7 +520,7 @@ function fxLoop(t){requestAnimationFrame(fxLoop);if(t-lastFx<33)return;lastFx=t;
     ctx.globalAlpha=1})}
 requestAnimationFrame(fxLoop);
 setInterval(function(){document.querySelectorAll('.tv-clock,.tv-tk-clock').forEach(function(e){e.textContent=timeStr()})},15000);
-window.TV={togglePanel:togglePanel,closePanel:function(){return togglePanel(false)},WALLS:WALLS,render:render,nav:nav,boot:boot,normalize:normalize,uid:uid,safeUrl:safeUrl};
+window.TV={togglePanel:togglePanel,closePanel:function(){return closeMenu()||togglePanel(false)},openMenu:function(){var f=bootArgs&&bootArgs[0].querySelector('.tv-tile.focus');if(f)openMenu(f)},WALLS:WALLS,render:render,nav:nav,boot:boot,normalize:normalize,uid:uid,safeUrl:safeUrl};
 })();
 </script>
 
@@ -591,10 +714,13 @@ $('mImport').onclick=function(){try{var c=TV.normalize(JSON.parse($('mText').val
 $('btnExport').onclick=function(){modal('Export / Import layout',
   '<p class="hint">This is your <b>Live</b> layout as JSON — copy it to back it up or share it. To import, paste a layout here and press <b>Import into draft</b>; it lands in the Draft side so you can compare before applying.</p>',
   JSON.stringify(S.live,null,2),true)};
+/* PWA: lets Android Chrome "Add to Home screen"; the service worker is skipped inside the Firestick app */
+var HEAD_EXTRA='<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#06080f"><meta name="mobile-web-app-capable" content="yes"><link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/icon-192.png">\n';
+var BODY_EXTRA='<script>if("serviceWorker" in navigator&&!window.FireTV&&(location.protocol==="https:"||location.hostname==="localhost"))navigator.serviceWorker.register("sw.js").catch(function(){});<\/script>\n';
 $('btnBuild').onclick=function(){
   var css=document.getElementById('tvcss').textContent,rt=document.getElementById('tvruntime').textContent;
   var cfg=JSON.stringify(S.live).replace(/</g,'\\u003c');
-  var html='<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escH(S.live.title)+'</title>\n<style>html,body{margin:0;background:#000}'+css+'</style></head>\n<body><div class="tv-root" id="tvroot"></div>\n<script>'+rt+'<\/script>\n<script>TV.boot(document.getElementById("tvroot"),'+cfg+');<\/script>\n</body></html>';
+  var html='<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escH(S.live.title)+'</title>\n'+HEAD_EXTRA+'<style>html,body{margin:0;background:#000}'+css+'</style></head>\n<body><div class="tv-root" id="tvroot"></div>\n<script>'+rt+'<\/script>\n<script>TV.boot(document.getElementById("tvroot"),'+cfg+');<\/script>\n'+BODY_EXTRA+'</body></html>';
   modal('TV page (built from Live)',
     '<p class="hint">One self-contained file — no server code, no accounts. To get it onto the Firestick:</p><ol class="hint">'+
     '<li>Copy the HTML below and save it as <b>index.html</b>.</li>'+
