@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Home</title>
-<style>html,body{margin:0;background:#000}.tv-vid,.tv-wall video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+<style>html,body{margin:0;background:#000}.tv-ticker{position:absolute;left:0;right:0;top:0;height:40px;display:flex;align-items:stretch;background:linear-gradient(180deg,rgba(8,10,16,.92),rgba(8,10,16,.78));border-bottom:2px solid var(--accent);overflow:hidden;z-index:3;font-size:17px}
+.tv-tk-tag{flex:0 0 auto;display:flex;align-items:center;padding:0 18px 0 56px;background:var(--accent);color:#fff;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;font-size:14px;clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,0 100%);padding-right:30px}
+.tv-tk-tag b{font-weight:300;margin-left:10px;letter-spacing:0;font-variant-numeric:tabular-nums;font-size:16px}
+.tv-tk-win{position:relative;flex:1;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 40px,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(90deg,transparent,#000 40px,#000 calc(100% - 40px),transparent)}
+.tv-tk-run{position:absolute;left:0;top:0;bottom:0;display:flex;align-items:center;white-space:nowrap;will-change:transform;animation:tvtick linear infinite}
+.tv-tk-it{display:inline-flex;align-items:center;padding:0 22px}
+.tv-tk-it i{font-style:normal;font-size:12px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--accent);filter:brightness(1.6);margin-right:10px}
+.tv-tk-it+.tv-tk-it:before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);margin:0 22px 0 -22px;opacity:.8}
+@keyframes tvtick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.tv-stage.has-ticker .tv-top{padding-top:56px}
+.tv-stage.has-ticker .tv-rows{top:146px}
+.tv-vid,.tv-wall video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
 
 .tv-stage{position:relative;width:1280px;height:720px;overflow:hidden;color:#fff;font-family:'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;transform-origin:0 0;user-select:none}
 .tv-bg-midnight{background:radial-gradient(1200px 600px at 15% -10%,#1e3160 0%,#0b1020 55%,#06080f 100%)}
@@ -67,21 +78,31 @@ function normalize(c){
   c=c&&typeof c==='object'?c:{};
   var w=c.widgets||{};
   return {title:String(c.title||'Home'),accent:hex(c.accent,'#4f8cff'),bg:BGS.indexOf(c.bg)>=0?c.bg:'midnight',
-    size:SIZES[c.size]?c.size:'medium',fx:FX.indexOf(c.fx)>=0?c.fx:'none',matchAccent:!!c.matchAccent,showWidgets:c.showWidgets!==false,
-    widgets:{today:Array.isArray(w.today)?w.today.map(String):[],weather:String(w.weather||''),game:String(w.game||'')},
+    size:SIZES[c.size]?c.size:'medium',fx:FX.indexOf(c.fx)>=0?c.fx:'none',matchAccent:!!c.matchAccent,showWidgets:c.showWidgets!==false,widgetStyle:c.widgetStyle==='ticker'?'ticker':'tiles',
+    widgets:{today:Array.isArray(w.today)?w.today.map(String):[],weather:String(w.weather||''),game:String(w.game||''),news:Array.isArray(w.news)?w.news.map(String):[]},
     rows:(Array.isArray(c.rows)?c.rows:[]).map(function(r){return{id:String(r.id||uid()),name:String(r.name||'Row'),wall:WALLS[r.wall]?r.wall:'',
       tiles:(Array.isArray(r.tiles)?r.tiles:[]).map(function(t){return{id:String(t.id||uid()),label:String(t.label||'Tile'),url:String(t.url||''),color:hex(t.color,'#4f8cff'),kind:KINDS.indexOf(t.kind)>=0?t.kind:'web'}})}})};
 }
 function render(cfg,status){
   status=status||{};var w=cfg.widgets;
-  var h='<div class="tv-stage tv-bg-'+esc(cfg.bg)+'" style="--accent:'+esc(cfg.accent)+';--tw:'+(SIZES[cfg.size]||248)+'px" data-accent="'+esc(cfg.accent)+'" data-match="'+(cfg.matchAccent?1:0)+'">';
+  var tk=cfg.showWidgets&&cfg.widgetStyle==='ticker';
+  var h='<div class="tv-stage tv-bg-'+esc(cfg.bg)+(tk?' has-ticker':'')+'" style="--accent:'+esc(cfg.accent)+';--tw:'+(SIZES[cfg.size]||248)+'px" data-accent="'+esc(cfg.accent)+'" data-match="'+(cfg.matchAccent?1:0)+'">';
   if(WALLS[cfg.fx]&&WALLS[cfg.fx].video)h+='<video class="tv-vid" src="'+WALLS[cfg.fx].video+'" poster="'+WALLS[cfg.fx].poster+'" autoplay muted loop playsinline></video>';
   var used={};cfg.rows.forEach(function(r){if(r.wall&&!used[r.wall]){used[r.wall]=1;var W=WALLS[r.wall];h+='<div class="tv-wall" data-w="'+r.wall+'" style="background:'+W.bg+'">'+(W.video?'<video src="'+W.video+'" muted loop playsinline preload="none"></video>':'')+'</div>'}});
   h+='<div class="tv-glow"></div>';
   if(cfg.fx==='drift')h+='<div class="tv-drift"></div>';
   else if(cfg.fx==='snow'||cfg.fx==='stars')h+='<canvas class="tv-fx" data-fx="'+cfg.fx+'" width="640" height="360"></canvas>';
   h+='<div class="tv-top"><div><div class="tv-title">'+esc(cfg.title)+'</div><div class="tv-date">'+dateStr()+'</div></div><div class="tv-clock">'+timeStr()+'</div></div>';
-  if(cfg.showWidgets){
+  if(tk){
+    var items=[];w.today.filter(function(x){return x.trim()}).forEach(function(x){items.push(['Today',x])});
+    if(w.weather.trim())items.push(['Weather',w.weather]);if(w.game.trim())items.push(['Next game',w.game]);
+    w.news.filter(function(x){return x.trim()}).forEach(function(x){var m=/^([^:]{1,18}):\s*(.+)$/.exec(x);items.push(m?[m[1],m[2]]:['',x])});
+    if(!items.length)items.push(['','Add items in the sandbox to fill the ticker']);
+    var one=items.map(function(it){return '<span class="tv-tk-it">'+(it[0]?'<i>'+esc(it[0])+'</i>':'')+esc(it[1])+'</span>'}).join('');
+    var len=items.reduce(function(n,it){return n+it[0].length+it[1].length+6},0);
+    h+='<div class="tv-ticker"><div class="tv-tk-tag">'+esc(cfg.title)+'<b class="tv-tk-clock">'+timeStr()+'</b></div><div class="tv-tk-win"><div class="tv-tk-run" style="animation-duration:'+Math.max(18,Math.round(len*.32))+'s">'+one+one+'</div></div></div>';
+  }
+  if(cfg.showWidgets&&!tk){
     var today=w.today.filter(function(x){return x.trim()}).slice(0,3);
     h+='<div class="tv-widgets"><div class="tv-w"><div class="tv-wl">Today</div>'+(today.length?today.map(function(x){return '<div class="tv-wi">'+esc(x)+'</div>'}).join(''):'<div class="tv-wi dim">Nothing scheduled</div>')+'</div>';
     h+='<div class="tv-w"><div class="tv-wl">Weather</div><div class="tv-big">'+esc(w.weather)+'</div></div>';
@@ -161,9 +182,9 @@ function fxLoop(t){requestAnimationFrame(fxLoop);if(t-lastFx<33)return;lastFx=t;
       ctx.beginPath();ctx.arc(q.x,q.y,q.r,0,6.283);ctx.fill()});
     ctx.globalAlpha=1})}
 requestAnimationFrame(fxLoop);
-setInterval(function(){document.querySelectorAll('.tv-clock').forEach(function(e){e.textContent=timeStr()})},15000);
+setInterval(function(){document.querySelectorAll('.tv-clock,.tv-tk-clock').forEach(function(e){e.textContent=timeStr()})},15000);
 window.TV={WALLS:WALLS,render:render,nav:nav,boot:boot,normalize:normalize,uid:uid,safeUrl:safeUrl};
 })();
 </script>
-<script>TV.boot(document.getElementById("tvroot"),{"title":"Home","accent":"#4f8cff","bg":"midnight","size":"medium","fx":"snow","matchAccent":true,"showWidgets":true,"widgets":{"today":["9:00  Stand-up","12:30  Lunch","6:45  Hockey practice"],"weather":"-6°C · Light snow","game":"Sat 7:15 PM vs Hawks"},"rows":[{"id":"pcwbiqy","name":"Watch","wall":"night","tiles":[{"id":"cyfwhp0","label":"Netflix","url":"https://www.netflix.com","color":"#c4101a","kind":"app"},{"id":"7trl12y","label":"YouTube","url":"https://www.youtube.com","color":"#e5002d","kind":"app"},{"id":"9nhvuxo","label":"Prime Video","url":"https://www.primevideo.com","color":"#1399ff","kind":"app"},{"id":"r6uxjty","label":"Disney+","url":"https://www.disneyplus.com","color":"#1f3fbf","kind":"app"},{"id":"x20xwdv","label":"Crave","url":"https://www.crave.ca","color":"#2b2b8a","kind":"app"},{"id":"sfut7bw","label":"Sportsnet+","url":"https://www.sportsnet.ca/plus","color":"#c21d24","kind":"app"}]},{"id":"xb2c3wg","name":"Team","wall":"rink","tiles":[{"id":"5sxvfgd","label":"Live game stream","url":"https://www.youtube.com","color":"#15803d","kind":"deeplink"},{"id":"8uhse8u","label":"TeamSnap","url":"https://go.teamsnap.com","color":"#e8701a","kind":"app"},{"id":"iuyof2d","label":"Highlights","url":"https://www.youtube.com","color":"#0e7490","kind":"deeplink"}]},{"id":"x00gklw","name":"Assistant","wall":"sunset","tiles":[{"id":"9ii7yr8","label":"Ask Claude","url":"https://claude.ai/new","color":"#d97757","kind":"web"},{"id":"pr6u0d9","label":"Calendar","url":"https://outlook.live.com/calendar","color":"#0f6cbd","kind":"web"}]},{"id":"zwxpu4c","name":"Testing","wall":"","tiles":[{"id":"oi7kkar","label":"New link to try","url":"https://example.com","color":"#6d28d9","kind":"web"}]}]});</script>
+<script>TV.boot(document.getElementById("tvroot"),{"title":"Home","accent":"#4f8cff","bg":"midnight","size":"medium","fx":"snow","matchAccent":true,"showWidgets":true,"widgetStyle":"ticker","widgets":{"today":["9:00  Stand-up","12:30  Lunch","6:45  Hockey practice"],"weather":"-6°C · Light snow","game":"Sat 7:15 PM vs Hawks"},"rows":[{"id":"pcwbiqy","name":"Watch","wall":"night","tiles":[{"id":"cyfwhp0","label":"Netflix","url":"https://www.netflix.com","color":"#c4101a","kind":"app"},{"id":"7trl12y","label":"YouTube","url":"https://www.youtube.com","color":"#e5002d","kind":"app"},{"id":"9nhvuxo","label":"Prime Video","url":"https://www.primevideo.com","color":"#1399ff","kind":"app"},{"id":"r6uxjty","label":"Disney+","url":"https://www.disneyplus.com","color":"#1f3fbf","kind":"app"},{"id":"x20xwdv","label":"Crave","url":"https://www.crave.ca","color":"#2b2b8a","kind":"app"},{"id":"sfut7bw","label":"Sportsnet+","url":"https://www.sportsnet.ca/plus","color":"#c21d24","kind":"app"}]},{"id":"xb2c3wg","name":"Team","wall":"rink","tiles":[{"id":"5sxvfgd","label":"Live game stream","url":"https://www.youtube.com","color":"#15803d","kind":"deeplink"},{"id":"8uhse8u","label":"TeamSnap","url":"https://go.teamsnap.com","color":"#e8701a","kind":"app"},{"id":"iuyof2d","label":"Highlights","url":"https://www.youtube.com","color":"#0e7490","kind":"deeplink"}]},{"id":"x00gklw","name":"Assistant","wall":"sunset","tiles":[{"id":"9ii7yr8","label":"Ask Claude","url":"https://claude.ai/new","color":"#d97757","kind":"web"},{"id":"pr6u0d9","label":"Calendar","url":"https://outlook.live.com/calendar","color":"#0f6cbd","kind":"web"}]},{"id":"zwxpu4c","name":"Testing","wall":"","tiles":[{"id":"oi7kkar","label":"New link to try","url":"https://example.com","color":"#6d28d9","kind":"web"}]}]});</script>
 </body></html>
