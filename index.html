@@ -155,9 +155,59 @@ function normalize(c){
   return {title:String(c.title||'Home'),accent:hex(c.accent,'#4f8cff'),bg:BGS.indexOf(c.bg)>=0?c.bg:'midnight',
     size:SIZES[c.size]?c.size:'medium',fx:FX.indexOf(c.fx)>=0?c.fx:'none',matchAccent:!!c.matchAccent,showWidgets:c.showWidgets!==false,widgetStyle:c.widgetStyle==='ticker'?'ticker':'tiles',installedRow:c.installedRow!==false,
     widgets:{today:Array.isArray(w.today)?w.today.map(String):[],weather:String(w.weather||''),game:String(w.game||''),news:Array.isArray(w.news)?w.news.map(String):[]},
+    live:normLive(c.live),
     rows:(Array.isArray(c.rows)?c.rows:[]).map(function(r){return{id:String(r.id||uid()),name:String(r.name||'Row'),wall:WALLS[r.wall]?r.wall:'',
       tiles:(Array.isArray(r.tiles)?r.tiles:[]).map(function(t){return{id:String(t.id||uid()),label:String(t.label||'Tile'),url:String(t.url||''),color:hex(t.color,'#4f8cff'),kind:KINDS.indexOf(t.kind)>=0?t.kind:'web',pkg:String(t.pkg||'')}})}})};
 }
+/* ---- live ticker data: Open-Meteo weather + ESPN scoreboards (both allow browser requests, no keys) ---- */
+var LEAGUES={nhl:['NHL','hockey/nhl'],nfl:['NFL','football/nfl'],nba:['NBA','basketball/nba'],mlb:['MLB','baseball/mlb'],mls:['MLS','soccer/usa.1'],epl:['Premier League','soccer/eng.1']};
+function normLive(l){l=l&&typeof l==='object'?l:{};var wx=l.weather||{},sc=l.scores||{};
+  return {every:[2,5,10,15].indexOf(+l.every)>=0?+l.every:5,
+    weather:{on:!!wx.on,place:String(wx.place||''),lat:typeof wx.lat==='number'?wx.lat:null,lon:typeof wx.lon==='number'?wx.lon:null,units:wx.units==='f'?'f':'c'},
+    scores:{on:!!sc.on,leagues:(Array.isArray(sc.leagues)?sc.leagues:['nhl']).filter(function(k){return LEAGUES[k]}),
+      teams:(Array.isArray(sc.teams)?sc.teams:[]).map(function(t){return String(t).trim().toUpperCase()}).filter(Boolean)}}}
+var LIVE={key:'',at:0,weather:'',scores:[],busy:false,cfg:null,subs:[],timer:0};
+try{var lc=JSON.parse(localStorage.getItem('tv-live')||'null');if(lc&&lc.key){LIVE.key=lc.key;LIVE.at=lc.at||0;LIVE.weather=lc.weather||'';LIVE.scores=lc.scores||[]}}catch(e){}
+function liveOn(L){return !!L&&((L.weather.on&&L.weather.lat!==null)||(L.scores.on&&L.scores.leagues.length>0))}
+function liveKey(L){return JSON.stringify([L.weather.on&&[L.weather.lat,L.weather.lon,L.weather.units],L.scores.on&&[L.scores.leagues,L.scores.teams]])}
+function liveWeather(cfg){var L=cfg.live;if(!L||!L.weather.on)return '';ensureLive(cfg);return LIVE.key===liveKey(L)?LIVE.weather:''}
+function liveScores(cfg){var L=cfg.live;if(!L||!L.scores.on)return [];ensureLive(cfg);return LIVE.key===liveKey(L)?LIVE.scores:[]}
+function wxWord(c){return c===0?'Clear':c<=2?'Partly cloudy':c===3?'Cloudy':c<=48?'Fog':c<=57?'Drizzle':c<=67?'Rain':c<=77?'Snow':c<=82?'Showers':c<=86?'Snow showers':'Thunderstorm'}
+function gameLine(e,lg){var cp=e.competitions&&e.competitions[0];if(!cp)return null;var a=null,h=null;
+  cp.competitors.forEach(function(c){if(c.homeAway==='home')h=c;else a=c});if(!a||!h)return null;
+  var st=(e.status&&e.status.type)||{},A=a.team.abbreviation,H=h.team.abbreviation,txt;
+  if(st.state==='pre'){var d=new Date(e.date),today=new Date().toDateString()===d.toDateString();
+    txt=A+' @ '+H+' · '+(today?'':d.toLocaleDateString([],{weekday:'short'})+' ')+d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}
+  else txt=A+' '+a.score+' – '+H+' '+h.score+' · '+(st.shortDetail||st.detail||'');
+  return {abbrs:[A,H],item:[st.state==='in'?lg+' live':lg,txt]}}
+function ensureLive(cfg){var L=cfg.live;if(!liveOn(L))return;LIVE.cfg=L;var k=liveKey(L);
+  if(k!==LIVE.key){LIVE.key=k;LIVE.at=0;LIVE.weather='';LIVE.scores=[]}
+  if(!LIVE.timer){LIVE.timer=setInterval(function(){if(LIVE.cfg)ensureLive({live:LIVE.cfg})},60000);
+    document.addEventListener('visibilitychange',function(){if(!document.hidden&&LIVE.cfg)ensureLive({live:LIVE.cfg})})}
+  if(LIVE.busy||Date.now()-LIVE.at<L.every*60000)return;
+  LIVE.busy=true;var jobs=[],got={},ok=false;
+  if(L.weather.on&&L.weather.lat!==null){var F=L.weather.units==='f';
+    jobs.push(fetch('https://api.open-meteo.com/v1/forecast?latitude='+L.weather.lat+'&longitude='+L.weather.lon+'&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1'+(F?'&temperature_unit=fahrenheit':''))
+      .then(function(r){return r.json()}).then(function(j){var cu=j.current,dy=j.daily;if(!cu)return;ok=true;
+        got.weather=Math.round(cu.temperature_2m)+'°'+(F?'F':'C')+' · '+wxWord(cu.weather_code)+(dy&&dy.temperature_2m_max?' · H '+Math.round(dy.temperature_2m_max[0])+'° L '+Math.round(dy.temperature_2m_min[0])+'°':'')})
+      .catch(function(){}))}
+  var lists={};
+  if(L.scores.on)L.scores.leagues.forEach(function(lk){var lg=LEAGUES[lk];
+    jobs.push(fetch('https://site.api.espn.com/apis/site/v2/sports/'+lg[1]+'/scoreboard').then(function(r){return r.json()}).then(function(j){ok=true;
+      lists[lk]=(j.events||[]).map(function(e){return gameLine(e,lg[0])}).filter(function(g){return g&&(!L.scores.teams.length||g.abbrs.some(function(x){return L.scores.teams.indexOf(x)>=0}))}).map(function(g){return g.item})})
+      .catch(function(){}))});
+  Promise.all(jobs).then(function(){LIVE.busy=false;if(liveKey(L)!==LIVE.key)return;
+    if(!ok){LIVE.at=Date.now()-L.every*60000+60000;return}            // offline: keep last values, retry in a minute
+    LIVE.at=Date.now();if(got.weather)LIVE.weather=got.weather;
+    var sc=[],anyList=false;L.scores.leagues.forEach(function(lk){if(lists[lk]){anyList=true;sc=sc.concat(lists[lk])}});if(anyList)LIVE.scores=sc.slice(0,24);
+    try{localStorage.setItem('tv-live',JSON.stringify({key:LIVE.key,at:LIVE.at,weather:LIVE.weather,scores:LIVE.scores}))}catch(e){}
+    LIVE.subs.forEach(function(fn){try{fn()}catch(e){}})})}
+function onLive(fn){LIVE.subs.push(fn)}
+/* refresh only the ticker / weather text in place so focus, scroll and panels are untouched */
+function liveDom(root){var cfg=root._cfg;if(!cfg)return;var st=root.querySelector('.tv-stage');if(!st)return;
+  var tk=st.querySelector('.tv-ticker');if(tk){var tmp=document.createElement('div');tmp.innerHTML=render(cfg);var nt=tmp.querySelector('.tv-ticker');
+    if(nt&&nt.querySelector('.tv-tk-run').innerHTML!==tk.querySelector('.tv-tk-run').innerHTML)tk.parentNode.replaceChild(nt,tk)}
+  var wx=st.querySelector('.tv-wx');if(wx){var v=liveWeather(cfg)||cfg.widgets.weather;if(wx.textContent!==v)wx.textContent=v}}
 function render(cfg,status){
   status=status||{};var w=cfg.widgets;
   var tk=cfg.showWidgets&&cfg.widgetStyle==='ticker';
@@ -171,7 +221,8 @@ function render(cfg,status){
   h+='<div class="tv-top"><div><div class="tv-title">'+esc(cfg.title)+'</div><div class="tv-date">'+dateStr()+'</div></div><div class="tv-clock">'+timeStr()+'</div></div>';
   if(tk){
     var items=[];w.today.filter(function(x){return x.trim()}).forEach(function(x){items.push(['Today',x])});
-    if(w.weather.trim())items.push(['Weather',w.weather]);if(w.game.trim())items.push(['Next game',w.game]);
+    var wx=liveWeather(cfg)||w.weather;if(wx.trim())items.push(['Weather',wx]);if(w.game.trim())items.push(['Next game',w.game]);
+    liveScores(cfg).forEach(function(x){items.push(x)});
     w.news.filter(function(x){return x.trim()}).forEach(function(x){var m=/^([^:]{1,18}):\s*(.+)$/.exec(x);items.push(m?[m[1],m[2]]:['',x])});
     if(!items.length)items.push(['','Add items in the sandbox to fill the ticker']);
     var one=items.map(function(it){return '<span class="tv-tk-it">'+(it[0]?'<i>'+esc(it[0])+'</i>':'')+esc(it[1])+'</span>'}).join('');
@@ -181,7 +232,7 @@ function render(cfg,status){
   if(cfg.showWidgets&&!tk){
     var today=w.today.filter(function(x){return x.trim()}).slice(0,3);
     h+='<div class="tv-widgets"><div class="tv-w"><div class="tv-wl">Today</div>'+(today.length?today.map(function(x){return '<div class="tv-wi">'+esc(x)+'</div>'}).join(''):'<div class="tv-wi dim">Nothing scheduled</div>')+'</div>';
-    h+='<div class="tv-w"><div class="tv-wl">Weather</div><div class="tv-big">'+esc(w.weather)+'</div></div>';
+    h+='<div class="tv-w"><div class="tv-wl">Weather</div><div class="tv-big tv-wx">'+esc(liveWeather(cfg)||w.weather)+'</div></div>';
     h+='<div class="tv-w"><div class="tv-wl">Next game</div><div class="tv-big">'+esc(w.game)+'</div></div></div>';
   }
   h+='<div class="tv-rows'+(cfg.showWidgets?'':' nowidgets')+'">';
@@ -353,7 +404,7 @@ function boot(root,cfg,opts){
     var s=Math.min(innerWidth/1280,innerHeight/720);stage.style.transform='translate('+(innerWidth-1280*s)/2+'px,'+(innerHeight-720*s)/2+'px) scale('+s+')'}
   fit();
   var n=nav(root,openTile);n.apply();
-  if(!root._ptr){root._ptr=1;bindPointer(root)}
+  if(!root._ptr){root._ptr=1;bindPointer(root);onLive(function(){liveDom(root)})}
   if(!root._bound){root._bound=true;addEventListener('resize',function(){if(root._fit)root._fit()});
     addEventListener('keydown',function(e){if(!root._active||!root._active())return;if(menu.open&&bootArgs&&bootArgs[0]===root){menuKey(e);e.preventDefault();return}if(panel.open&&bootArgs&&bootArgs[0]===root){panelKey(e);e.preventDefault();return}if(e.key==='ContextMenu'){var f=root.querySelector('.tv-tile.focus');if(f){openMenu(f);e.preventDefault()}return}if(root._nav&&root._nav.key(e))e.preventDefault()})}
   root._fit=fit;root._nav=n;root._active=opts.active||function(){return true};
@@ -371,9 +422,9 @@ function fxLoop(t){requestAnimationFrame(fxLoop);if(t-lastFx<33)return;lastFx=t;
     ctx.globalAlpha=1})}
 requestAnimationFrame(fxLoop);
 setInterval(function(){document.querySelectorAll('.tv-clock,.tv-tk-clock').forEach(function(e){e.textContent=timeStr()})},15000);
-window.TV={togglePanel:togglePanel,closePanel:function(){return closeMenu()||togglePanel(false)},openMenu:function(){var f=bootArgs&&bootArgs[0].querySelector('.tv-tile.focus');if(f)openMenu(f)},WALLS:WALLS,render:render,nav:nav,boot:boot,normalize:normalize,uid:uid,safeUrl:safeUrl};
+window.TV={onLive:onLive,LEAGUES:LEAGUES,liveStatus:function(){return{at:LIVE.at,busy:LIVE.busy}},togglePanel:togglePanel,closePanel:function(){return closeMenu()||togglePanel(false)},openMenu:function(){var f=bootArgs&&bootArgs[0].querySelector('.tv-tile.focus');if(f)openMenu(f)},WALLS:WALLS,render:render,nav:nav,boot:boot,normalize:normalize,uid:uid,safeUrl:safeUrl};
 })();
 </script>
-<script>TV.boot(document.getElementById("tvroot"),{"title":"Home","accent":"#4f8cff","bg":"midnight","size":"medium","fx":"snow","matchAccent":true,"showWidgets":true,"widgetStyle":"ticker","widgets":{"today":["9:00  Stand-up","12:30  Lunch","6:45  Hockey practice"],"weather":"-6°C · Light snow","game":"Sat 7:15 PM vs Hawks"},"rows":[{"id":"pcwbiqy","name":"Watch","wall":"night","tiles":[{"id":"cyfwhp0","label":"Netflix","url":"https://www.netflix.com","color":"#c4101a","kind":"app"},{"id":"7trl12y","label":"YouTube","url":"https://www.youtube.com","color":"#e5002d","kind":"app"},{"id":"9nhvuxo","label":"Prime Video","url":"https://www.primevideo.com","color":"#1399ff","kind":"app"},{"id":"r6uxjty","label":"Disney+","url":"https://www.disneyplus.com","color":"#1f3fbf","kind":"app"},{"id":"x20xwdv","label":"Crave","url":"https://www.crave.ca","color":"#2b2b8a","kind":"app"},{"id":"sfut7bw","label":"Sportsnet+","url":"https://www.sportsnet.ca/plus","color":"#c21d24","kind":"app"}]},{"id":"xb2c3wg","name":"Team","wall":"rink","tiles":[{"id":"5sxvfgd","label":"Live game stream","url":"https://www.youtube.com","color":"#15803d","kind":"deeplink"},{"id":"8uhse8u","label":"TeamSnap","url":"https://go.teamsnap.com","color":"#e8701a","kind":"app"},{"id":"iuyof2d","label":"Highlights","url":"https://www.youtube.com","color":"#0e7490","kind":"deeplink"}]},{"id":"x00gklw","name":"Assistant","wall":"sunset","tiles":[{"id":"9ii7yr8","label":"Ask Claude","url":"https://claude.ai/new","color":"#d97757","kind":"web"},{"id":"pr6u0d9","label":"Calendar","url":"https://outlook.live.com/calendar","color":"#0f6cbd","kind":"web"}]},{"id":"zwxpu4c","name":"Testing","wall":"","tiles":[{"id":"oi7kkar","label":"New link to try","url":"https://example.com","color":"#6d28d9","kind":"web"}]}]});</script>
+<script>TV.boot(document.getElementById("tvroot"),{"title":"Home","accent":"#4f8cff","bg":"midnight","size":"medium","fx":"snow","matchAccent":true,"showWidgets":true,"widgetStyle":"ticker","widgets":{"today":["9:00  Stand-up","12:30  Lunch","6:45  Hockey practice"],"weather":"-6°C · Light snow","game":"Sat 7:15 PM vs Hawks"},"rows":[{"id":"pcwbiqy","name":"Watch","wall":"night","tiles":[{"id":"cyfwhp0","label":"Netflix","url":"https://www.netflix.com","color":"#c4101a","kind":"app"},{"id":"7trl12y","label":"YouTube","url":"https://www.youtube.com","color":"#e5002d","kind":"app"},{"id":"9nhvuxo","label":"Prime Video","url":"https://www.primevideo.com","color":"#1399ff","kind":"app"},{"id":"r6uxjty","label":"Disney+","url":"https://www.disneyplus.com","color":"#1f3fbf","kind":"app"},{"id":"x20xwdv","label":"Crave","url":"https://www.crave.ca","color":"#2b2b8a","kind":"app"},{"id":"sfut7bw","label":"Sportsnet+","url":"https://www.sportsnet.ca/plus","color":"#c21d24","kind":"app"}]},{"id":"xb2c3wg","name":"Team","wall":"rink","tiles":[{"id":"5sxvfgd","label":"Live game stream","url":"https://www.youtube.com","color":"#15803d","kind":"deeplink"},{"id":"8uhse8u","label":"TeamSnap","url":"https://go.teamsnap.com","color":"#e8701a","kind":"app"},{"id":"iuyof2d","label":"Highlights","url":"https://www.youtube.com","color":"#0e7490","kind":"deeplink"}]},{"id":"x00gklw","name":"Assistant","wall":"sunset","tiles":[{"id":"9ii7yr8","label":"Ask Claude","url":"https://claude.ai/new","color":"#d97757","kind":"web"},{"id":"pr6u0d9","label":"Calendar","url":"https://outlook.live.com/calendar","color":"#0f6cbd","kind":"web"}]},{"id":"zwxpu4c","name":"Testing","wall":"","tiles":[{"id":"oi7kkar","label":"New link to try","url":"https://example.com","color":"#6d28d9","kind":"web"}]}],"live":{"every":5,"weather":{"on":true,"place":"Edmonton, Alberta, CA","lat":53.55014,"lon":-113.46871,"units":"c"},"scores":{"on":true,"leagues":["nhl"],"teams":[]}}});</script>
 <script>if("serviceWorker" in navigator&&!window.FireTV&&(location.protocol==="https:"||location.hostname==="localhost"))navigator.serviceWorker.register("sw.js").catch(function(){});</script>
 </body></html>

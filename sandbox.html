@@ -257,6 +257,22 @@ body.tvmode #tvview{display:block}
     </div>
 
     <div class="card">
+      <h3>Live ticker data <span class="hint">(draft)</span></h3>
+      <label class="inline" style="margin-bottom:8px"><input type="checkbox" id="fLiveWx"> Live weather (replaces the typed weather text)</label>
+      <div class="inline" style="margin-bottom:6px">
+        <input id="fWxPlace" placeholder="Town or city, e.g. Edmonton" style="flex:1">
+        <button id="btnWxFind">Find</button>
+        <select id="fWxUnits"><option value="c">°C</option><option value="f">°F</option></select>
+      </div>
+      <p class="hint" id="fWxFound" style="margin:0 0 12px"></p>
+      <label class="inline" style="margin-bottom:8px"><input type="checkbox" id="fLiveSc"> Live scores in the ticker</label>
+      <div class="inline" id="fLeagues" style="flex-wrap:wrap;gap:6px 14px;margin-bottom:8px"></div>
+      <div class="field"><label>Only these teams (optional — team abbreviations, e.g. EDM, CGY)</label><input id="fTeams" placeholder="Leave empty for every game"></div>
+      <div class="field"><label>Update every</label><select id="fEvery"><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option></select></div>
+      <p class="hint">Weather from Open-Meteo and scores from ESPN's public scoreboards: free, no account needed. Shows upcoming, live and final games for today. If the internet drops, the last values stay up. Scores appear in the ticker style of widgets. <span id="fLiveStatus"></span></p>
+    </div>
+
+    <div class="card">
       <h3>Rows & tiles <span class="hint">(draft)</span></h3>
       <div class="quick">
         <input id="quickUrl" placeholder="Paste a link to try it out (e.g. youtube.com/@yourteam)">
@@ -304,9 +320,59 @@ function normalize(c){
   return {title:String(c.title||'Home'),accent:hex(c.accent,'#4f8cff'),bg:BGS.indexOf(c.bg)>=0?c.bg:'midnight',
     size:SIZES[c.size]?c.size:'medium',fx:FX.indexOf(c.fx)>=0?c.fx:'none',matchAccent:!!c.matchAccent,showWidgets:c.showWidgets!==false,widgetStyle:c.widgetStyle==='ticker'?'ticker':'tiles',installedRow:c.installedRow!==false,
     widgets:{today:Array.isArray(w.today)?w.today.map(String):[],weather:String(w.weather||''),game:String(w.game||''),news:Array.isArray(w.news)?w.news.map(String):[]},
+    live:normLive(c.live),
     rows:(Array.isArray(c.rows)?c.rows:[]).map(function(r){return{id:String(r.id||uid()),name:String(r.name||'Row'),wall:WALLS[r.wall]?r.wall:'',
       tiles:(Array.isArray(r.tiles)?r.tiles:[]).map(function(t){return{id:String(t.id||uid()),label:String(t.label||'Tile'),url:String(t.url||''),color:hex(t.color,'#4f8cff'),kind:KINDS.indexOf(t.kind)>=0?t.kind:'web',pkg:String(t.pkg||'')}})}})};
 }
+/* ---- live ticker data: Open-Meteo weather + ESPN scoreboards (both allow browser requests, no keys) ---- */
+var LEAGUES={nhl:['NHL','hockey/nhl'],nfl:['NFL','football/nfl'],nba:['NBA','basketball/nba'],mlb:['MLB','baseball/mlb'],mls:['MLS','soccer/usa.1'],epl:['Premier League','soccer/eng.1']};
+function normLive(l){l=l&&typeof l==='object'?l:{};var wx=l.weather||{},sc=l.scores||{};
+  return {every:[2,5,10,15].indexOf(+l.every)>=0?+l.every:5,
+    weather:{on:!!wx.on,place:String(wx.place||''),lat:typeof wx.lat==='number'?wx.lat:null,lon:typeof wx.lon==='number'?wx.lon:null,units:wx.units==='f'?'f':'c'},
+    scores:{on:!!sc.on,leagues:(Array.isArray(sc.leagues)?sc.leagues:['nhl']).filter(function(k){return LEAGUES[k]}),
+      teams:(Array.isArray(sc.teams)?sc.teams:[]).map(function(t){return String(t).trim().toUpperCase()}).filter(Boolean)}}}
+var LIVE={key:'',at:0,weather:'',scores:[],busy:false,cfg:null,subs:[],timer:0};
+try{var lc=JSON.parse(localStorage.getItem('tv-live')||'null');if(lc&&lc.key){LIVE.key=lc.key;LIVE.at=lc.at||0;LIVE.weather=lc.weather||'';LIVE.scores=lc.scores||[]}}catch(e){}
+function liveOn(L){return !!L&&((L.weather.on&&L.weather.lat!==null)||(L.scores.on&&L.scores.leagues.length>0))}
+function liveKey(L){return JSON.stringify([L.weather.on&&[L.weather.lat,L.weather.lon,L.weather.units],L.scores.on&&[L.scores.leagues,L.scores.teams]])}
+function liveWeather(cfg){var L=cfg.live;if(!L||!L.weather.on)return '';ensureLive(cfg);return LIVE.key===liveKey(L)?LIVE.weather:''}
+function liveScores(cfg){var L=cfg.live;if(!L||!L.scores.on)return [];ensureLive(cfg);return LIVE.key===liveKey(L)?LIVE.scores:[]}
+function wxWord(c){return c===0?'Clear':c<=2?'Partly cloudy':c===3?'Cloudy':c<=48?'Fog':c<=57?'Drizzle':c<=67?'Rain':c<=77?'Snow':c<=82?'Showers':c<=86?'Snow showers':'Thunderstorm'}
+function gameLine(e,lg){var cp=e.competitions&&e.competitions[0];if(!cp)return null;var a=null,h=null;
+  cp.competitors.forEach(function(c){if(c.homeAway==='home')h=c;else a=c});if(!a||!h)return null;
+  var st=(e.status&&e.status.type)||{},A=a.team.abbreviation,H=h.team.abbreviation,txt;
+  if(st.state==='pre'){var d=new Date(e.date),today=new Date().toDateString()===d.toDateString();
+    txt=A+' @ '+H+' · '+(today?'':d.toLocaleDateString([],{weekday:'short'})+' ')+d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}
+  else txt=A+' '+a.score+' – '+H+' '+h.score+' · '+(st.shortDetail||st.detail||'');
+  return {abbrs:[A,H],item:[st.state==='in'?lg+' live':lg,txt]}}
+function ensureLive(cfg){var L=cfg.live;if(!liveOn(L))return;LIVE.cfg=L;var k=liveKey(L);
+  if(k!==LIVE.key){LIVE.key=k;LIVE.at=0;LIVE.weather='';LIVE.scores=[]}
+  if(!LIVE.timer){LIVE.timer=setInterval(function(){if(LIVE.cfg)ensureLive({live:LIVE.cfg})},60000);
+    document.addEventListener('visibilitychange',function(){if(!document.hidden&&LIVE.cfg)ensureLive({live:LIVE.cfg})})}
+  if(LIVE.busy||Date.now()-LIVE.at<L.every*60000)return;
+  LIVE.busy=true;var jobs=[],got={},ok=false;
+  if(L.weather.on&&L.weather.lat!==null){var F=L.weather.units==='f';
+    jobs.push(fetch('https://api.open-meteo.com/v1/forecast?latitude='+L.weather.lat+'&longitude='+L.weather.lon+'&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1'+(F?'&temperature_unit=fahrenheit':''))
+      .then(function(r){return r.json()}).then(function(j){var cu=j.current,dy=j.daily;if(!cu)return;ok=true;
+        got.weather=Math.round(cu.temperature_2m)+'°'+(F?'F':'C')+' · '+wxWord(cu.weather_code)+(dy&&dy.temperature_2m_max?' · H '+Math.round(dy.temperature_2m_max[0])+'° L '+Math.round(dy.temperature_2m_min[0])+'°':'')})
+      .catch(function(){}))}
+  var lists={};
+  if(L.scores.on)L.scores.leagues.forEach(function(lk){var lg=LEAGUES[lk];
+    jobs.push(fetch('https://site.api.espn.com/apis/site/v2/sports/'+lg[1]+'/scoreboard').then(function(r){return r.json()}).then(function(j){ok=true;
+      lists[lk]=(j.events||[]).map(function(e){return gameLine(e,lg[0])}).filter(function(g){return g&&(!L.scores.teams.length||g.abbrs.some(function(x){return L.scores.teams.indexOf(x)>=0}))}).map(function(g){return g.item})})
+      .catch(function(){}))});
+  Promise.all(jobs).then(function(){LIVE.busy=false;if(liveKey(L)!==LIVE.key)return;
+    if(!ok){LIVE.at=Date.now()-L.every*60000+60000;return}            // offline: keep last values, retry in a minute
+    LIVE.at=Date.now();if(got.weather)LIVE.weather=got.weather;
+    var sc=[],anyList=false;L.scores.leagues.forEach(function(lk){if(lists[lk]){anyList=true;sc=sc.concat(lists[lk])}});if(anyList)LIVE.scores=sc.slice(0,24);
+    try{localStorage.setItem('tv-live',JSON.stringify({key:LIVE.key,at:LIVE.at,weather:LIVE.weather,scores:LIVE.scores}))}catch(e){}
+    LIVE.subs.forEach(function(fn){try{fn()}catch(e){}})})}
+function onLive(fn){LIVE.subs.push(fn)}
+/* refresh only the ticker / weather text in place so focus, scroll and panels are untouched */
+function liveDom(root){var cfg=root._cfg;if(!cfg)return;var st=root.querySelector('.tv-stage');if(!st)return;
+  var tk=st.querySelector('.tv-ticker');if(tk){var tmp=document.createElement('div');tmp.innerHTML=render(cfg);var nt=tmp.querySelector('.tv-ticker');
+    if(nt&&nt.querySelector('.tv-tk-run').innerHTML!==tk.querySelector('.tv-tk-run').innerHTML)tk.parentNode.replaceChild(nt,tk)}
+  var wx=st.querySelector('.tv-wx');if(wx){var v=liveWeather(cfg)||cfg.widgets.weather;if(wx.textContent!==v)wx.textContent=v}}
 function render(cfg,status){
   status=status||{};var w=cfg.widgets;
   var tk=cfg.showWidgets&&cfg.widgetStyle==='ticker';
@@ -320,7 +386,8 @@ function render(cfg,status){
   h+='<div class="tv-top"><div><div class="tv-title">'+esc(cfg.title)+'</div><div class="tv-date">'+dateStr()+'</div></div><div class="tv-clock">'+timeStr()+'</div></div>';
   if(tk){
     var items=[];w.today.filter(function(x){return x.trim()}).forEach(function(x){items.push(['Today',x])});
-    if(w.weather.trim())items.push(['Weather',w.weather]);if(w.game.trim())items.push(['Next game',w.game]);
+    var wx=liveWeather(cfg)||w.weather;if(wx.trim())items.push(['Weather',wx]);if(w.game.trim())items.push(['Next game',w.game]);
+    liveScores(cfg).forEach(function(x){items.push(x)});
     w.news.filter(function(x){return x.trim()}).forEach(function(x){var m=/^([^:]{1,18}):\s*(.+)$/.exec(x);items.push(m?[m[1],m[2]]:['',x])});
     if(!items.length)items.push(['','Add items in the sandbox to fill the ticker']);
     var one=items.map(function(it){return '<span class="tv-tk-it">'+(it[0]?'<i>'+esc(it[0])+'</i>':'')+esc(it[1])+'</span>'}).join('');
@@ -330,7 +397,7 @@ function render(cfg,status){
   if(cfg.showWidgets&&!tk){
     var today=w.today.filter(function(x){return x.trim()}).slice(0,3);
     h+='<div class="tv-widgets"><div class="tv-w"><div class="tv-wl">Today</div>'+(today.length?today.map(function(x){return '<div class="tv-wi">'+esc(x)+'</div>'}).join(''):'<div class="tv-wi dim">Nothing scheduled</div>')+'</div>';
-    h+='<div class="tv-w"><div class="tv-wl">Weather</div><div class="tv-big">'+esc(w.weather)+'</div></div>';
+    h+='<div class="tv-w"><div class="tv-wl">Weather</div><div class="tv-big tv-wx">'+esc(liveWeather(cfg)||w.weather)+'</div></div>';
     h+='<div class="tv-w"><div class="tv-wl">Next game</div><div class="tv-big">'+esc(w.game)+'</div></div></div>';
   }
   h+='<div class="tv-rows'+(cfg.showWidgets?'':' nowidgets')+'">';
@@ -502,7 +569,7 @@ function boot(root,cfg,opts){
     var s=Math.min(innerWidth/1280,innerHeight/720);stage.style.transform='translate('+(innerWidth-1280*s)/2+'px,'+(innerHeight-720*s)/2+'px) scale('+s+')'}
   fit();
   var n=nav(root,openTile);n.apply();
-  if(!root._ptr){root._ptr=1;bindPointer(root)}
+  if(!root._ptr){root._ptr=1;bindPointer(root);onLive(function(){liveDom(root)})}
   if(!root._bound){root._bound=true;addEventListener('resize',function(){if(root._fit)root._fit()});
     addEventListener('keydown',function(e){if(!root._active||!root._active())return;if(menu.open&&bootArgs&&bootArgs[0]===root){menuKey(e);e.preventDefault();return}if(panel.open&&bootArgs&&bootArgs[0]===root){panelKey(e);e.preventDefault();return}if(e.key==='ContextMenu'){var f=root.querySelector('.tv-tile.focus');if(f){openMenu(f);e.preventDefault()}return}if(root._nav&&root._nav.key(e))e.preventDefault()})}
   root._fit=fit;root._nav=n;root._active=opts.active||function(){return true};
@@ -520,7 +587,7 @@ function fxLoop(t){requestAnimationFrame(fxLoop);if(t-lastFx<33)return;lastFx=t;
     ctx.globalAlpha=1})}
 requestAnimationFrame(fxLoop);
 setInterval(function(){document.querySelectorAll('.tv-clock,.tv-tk-clock').forEach(function(e){e.textContent=timeStr()})},15000);
-window.TV={togglePanel:togglePanel,closePanel:function(){return closeMenu()||togglePanel(false)},openMenu:function(){var f=bootArgs&&bootArgs[0].querySelector('.tv-tile.focus');if(f)openMenu(f)},WALLS:WALLS,render:render,nav:nav,boot:boot,normalize:normalize,uid:uid,safeUrl:safeUrl};
+window.TV={onLive:onLive,LEAGUES:LEAGUES,liveStatus:function(){return{at:LIVE.at,busy:LIVE.busy}},togglePanel:togglePanel,closePanel:function(){return closeMenu()||togglePanel(false)},openMenu:function(){var f=bootArgs&&bootArgs[0].querySelector('.tv-tile.focus');if(f)openMenu(f)},WALLS:WALLS,render:render,nav:nav,boot:boot,normalize:normalize,uid:uid,safeUrl:safeUrl};
 })();
 </script>
 
@@ -566,6 +633,7 @@ function diff(a,b){
   if(a.showWidgets!==b.showWidgets)ch.push(b.showWidgets?'Widget strip shown':'Widget strip hidden');
   if(a.widgetStyle!==b.widgetStyle)ch.push('Widgets → '+(b.widgetStyle==='ticker'?'scrolling ticker':'tiles'));
   if(JSON.stringify(a.widgets)!==JSON.stringify(b.widgets))ch.push('Widget text edited');
+  if(JSON.stringify(a.live)!==JSON.stringify(b.live))ch.push('Live ticker data settings changed');
   var aRows={},aTiles={};
   a.rows.forEach(function(r){aRows[r.id]=r;r.tiles.forEach(function(x){aTiles[x.id]={t:x,row:r}})});
   var bRowIds=b.rows.map(function(r){return r.id}),bTileIds={};
@@ -637,7 +705,7 @@ document.addEventListener('keydown',function(e){
 });
 
 /* ---------- look editor ---------- */
-function loadLook(){var d=S.draft;$('fTitle').value=d.title;$('fAccent').value=d.accent;$('fBg').value=d.bg;$('fSize').value=d.size;$('fFx').value=d.fx;$('fWidgets').checked=d.showWidgets;$('fMatch').checked=d.matchAccent;
+function loadLook(){if(typeof loadLive==='function')loadLive();var d=S.draft;$('fTitle').value=d.title;$('fAccent').value=d.accent;$('fBg').value=d.bg;$('fSize').value=d.size;$('fFx').value=d.fx;$('fWidgets').checked=d.showWidgets;$('fMatch').checked=d.matchAccent;
   $('fToday').value=d.widgets.today.join('\n');$('fWeather').value=d.widgets.weather;$('fGame').value=d.widgets.game;$('fWStyle').value=d.widgetStyle;$('fNews').value=d.widgets.news.join('\n')}
 [['fTitle','title'],['fAccent','accent'],['fBg','bg'],['fSize','size'],['fFx','fx']].forEach(function(p){$(p[0]).addEventListener('input',function(){S.draft[p[1]]=this.value;refresh()})});
 $('fMatch').addEventListener('change',function(){S.draft.matchAccent=this.checked;refresh()});
@@ -647,6 +715,25 @@ $('fWeather').addEventListener('input',function(){S.draft.widgets.weather=this.v
 $('fGame').addEventListener('input',function(){S.draft.widgets.game=this.value;refresh()});
 $('fWStyle').addEventListener('input',function(){S.draft.widgetStyle=this.value;refresh()});
 $('fNews').addEventListener('input',function(){S.draft.widgets.news=this.value.split('\n');refresh()});
+/* ---------- live ticker data ---------- */
+(function(){var box=$('fLeagues');Object.keys(TV.LEAGUES).forEach(function(k){box.insertAdjacentHTML('beforeend','<label class="inline"><input type="checkbox" data-lg="'+k+'"> '+TV.LEAGUES[k][0]+'</label>')})})();
+function loadLive(){var L=S.draft.live;$('fLiveWx').checked=L.weather.on;$('fWxPlace').value=L.weather.place;$('fWxUnits').value=L.weather.units;
+  $('fWxFound').textContent=L.weather.lat!==null?'Using '+L.weather.place+' ('+L.weather.lat.toFixed(2)+', '+L.weather.lon.toFixed(2)+')':'Type your town and press Find.';
+  $('fLiveSc').checked=L.scores.on;document.querySelectorAll('#fLeagues input').forEach(function(i){i.checked=L.scores.leagues.indexOf(i.dataset.lg)>=0});
+  $('fTeams').value=L.scores.teams.join(', ');$('fEvery').value=String(L.every)}
+function findPlace(){var q=$('fWxPlace').value.trim();if(!q)return;$('fWxFound').textContent='Searching…';
+  fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&format=json&name='+encodeURIComponent(q.split(',')[0]))
+   .then(function(r){return r.json()}).then(function(j){var g=j.results&&j.results[0];if(!g){$('fWxFound').textContent='Couldn\'t find "'+q+'" — try just the town name.';return}
+     var W=S.draft.live.weather;W.place=[g.name,g.admin1,g.country_code].filter(Boolean).join(', ');W.lat=g.latitude;W.lon=g.longitude;W.on=true;loadLive();refresh()})
+   .catch(function(){$('fWxFound').textContent='Couldn\'t reach the weather service — check the internet connection.'})}
+$('btnWxFind').onclick=findPlace;$('fWxPlace').addEventListener('keydown',function(e){if(e.key==='Enter')findPlace()});
+$('fLiveWx').addEventListener('change',function(){S.draft.live.weather.on=this.checked;if(this.checked&&S.draft.live.weather.lat===null)findPlace();refresh()});
+$('fWxUnits').addEventListener('input',function(){S.draft.live.weather.units=this.value;refresh()});
+$('fLiveSc').addEventListener('change',function(){S.draft.live.scores.on=this.checked;if(this.checked&&!S.draft.live.scores.leagues.length){S.draft.live.scores.leagues=['nhl'];loadLive()}refresh()});
+$('fLeagues').addEventListener('change',function(){S.draft.live.scores.leagues=[].slice.call(document.querySelectorAll('#fLeagues input:checked')).map(function(i){return i.dataset.lg});refresh()});
+$('fTeams').addEventListener('change',function(){S.draft.live.scores.teams=this.value.split(/[\s,]+/).map(function(t){return t.trim().toUpperCase()}).filter(Boolean);refresh()});
+$('fEvery').addEventListener('input',function(){S.draft.live.every=+this.value;refresh()});
+TV.onLive(function(){refresh();var t=TV.liveStatus().at;$('fLiveStatus').textContent=t?'Last updated '+new Date(t).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+'.':''});
 
 /* ---------- rows editor ---------- */
 function wallOpts(sel){return '<option value=>Main wallpaper</option>'+Object.keys(TV.WALLS).map(function(k){return '<option value=+k+'+(k===sel?' selected':'')+'>'+TV.WALLS[k].name+'</option>'}).join('')}
