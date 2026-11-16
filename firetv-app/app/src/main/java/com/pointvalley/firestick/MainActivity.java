@@ -6,7 +6,14 @@ import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.ComponentName;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.provider.Settings;
+import android.util.Base64;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -24,6 +31,11 @@ import android.webkit.WebViewClient;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -85,6 +97,8 @@ public class MainActivity extends Activity {
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        // lets http:// video streams play on the https home page (M3U player)
+        s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
 
         web.addJavascriptInterface(new Bridge(), "FireTV");
         web.setWebViewClient(new WebViewClient() {
@@ -266,6 +280,104 @@ public class MainActivity extends Activity {
         }
     }
 
+    final HashMap<String, String> iconCache = new HashMap<>();
+
+    /** First installed package from a "|" list, or null. */
+    String installedOf(String pkgs) {
+        if (pkgs == null) return null;
+        for (String p : pkgs.split("\\|")) {
+            p = p.trim();
+            if (p.isEmpty()) continue;
+            try {
+                getPackageManager().getPackageInfo(p, 0);
+                return p;
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
+    /** The installed app's icon as a 128px PNG data URL, for tiles set to "Website / app icon". */
+    String iconFor(String url, String pkg) {
+        String p = null;
+        if (pkg != null && !pkg.isEmpty()) p = installedOf(pkg);
+        if (p == null && url != null && url.startsWith("app://")) p = installedOf(url.substring(6));
+        if (p == null) p = installedOf(packageForUrl(url));
+        if (p == null) return "";
+        synchronized (iconCache) {
+            if (iconCache.containsKey(p)) return iconCache.get(p);
+        }
+        String out = "";
+        try {
+            Drawable d = getPackageManager().getApplicationIcon(p);
+            Bitmap b;
+            int size = 128;
+            if (d instanceof BitmapDrawable && ((BitmapDrawable) d).getBitmap() != null) {
+                b = Bitmap.createScaledBitmap(((BitmapDrawable) d).getBitmap(), size, size, true);
+            } else {
+                b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+                Canvas c = new Canvas(b);
+                d.setBounds(0, 0, size, size);
+                d.draw(c);
+            }
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            b.compress(Bitmap.CompressFormat.PNG, 100, bos);
+            out = "data:image/png;base64," + Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP);
+        } catch (Exception ignored) {
+        }
+        synchronized (iconCache) {
+            iconCache.put(p, out);
+        }
+        return out;
+    }
+
+    /** Fire TV screen mirroring (Miracast) screen; falls back to cast settings or AirScreen. */
+    boolean openMirroring() {
+        Intent[] tries = {
+                new Intent().setComponent(new ComponentName("com.amazon.cast.sink", "com.amazon.cast.sink.DisplayMirroringSinkActivity")),
+                new Intent(Settings.ACTION_CAST_SETTINGS),
+        };
+        for (Intent i : tries) {
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                startActivity(i);
+                return true;
+            } catch (Exception ignored) {
+            }
+        }
+        return launchAny("com.ionitech.airscreen");
+    }
+
+    /** Downloads text (an M3U playlist) for the page, bypassing website-only restrictions. */
+    void fetchText(String url, int id) {
+        new Thread(() -> {
+            String body = null;
+            try {
+                HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+                c.setConnectTimeout(10000);
+                c.setReadTimeout(20000);
+                c.setInstanceFollowRedirects(true);
+                c.setRequestProperty("User-Agent", "FirestickHome/1.0");
+                if (c.getResponseCode() < 400) {
+                    InputStream in = c.getInputStream();
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                    byte[] buf = new byte[16384];
+                    int n, total = 0;
+                    while ((n = in.read(buf)) > 0 && total < 8 * 1024 * 1024) {
+                        bos.write(buf, 0, n);
+                        total += n;
+                    }
+                    in.close();
+                    body = bos.toString("UTF-8");
+                }
+                c.disconnect();
+            } catch (Exception ignored) {
+            }
+            final String js = "window.TV&&TV.fetched&&TV.fetched(" + id + "," + (body == null ? "null" : JSONObject.quote(body)) + ")";
+            main.post(() -> web.evaluateJavascript(js, null));
+        }).start();
+    }
+
     /** Available to the page as window.FireTV */
     class Bridge {
         @JavascriptInterface
@@ -313,6 +425,21 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) {
             }
             return out.toString();
+        }
+
+        @JavascriptInterface
+        public String appIcon(String url, String pkg) {
+            return iconFor(url, pkg);
+        }
+
+        @JavascriptInterface
+        public boolean mirror() {
+            return openMirroring();
+        }
+
+        @JavascriptInterface
+        public void fetchText(String url, int id) {
+            MainActivity.this.fetchText(url, id);
         }
 
         @JavascriptInterface
