@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Home</title>
-<style>html,body{margin:0;background:#000}.tv-ticker{position:absolute;left:0;right:0;top:0;height:40px;display:flex;align-items:stretch;background:linear-gradient(180deg,rgba(8,10,16,.92),rgba(8,10,16,.78));border-bottom:2px solid var(--accent);overflow:hidden;z-index:3;font-size:17px}
+<style>html,body{margin:0;background:#000}.tv-gear{position:absolute;right:56px;top:84px;font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:5px 12px;border-radius:20px;background:rgba(255,255,255,.1);opacity:.55;transition:all .14s}
+.tv-stage.has-ticker .tv-gear{top:106px}
+.tv-gear.focus{opacity:1;background:var(--accent);box-shadow:0 0 0 3px #fff,0 0 18px var(--accent);transform:scale(1.08)}
+.tv-panel{position:absolute;right:40px;top:120px;width:470px;background:rgba(10,12,20,.94);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:18px 0 12px;z-index:10;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.tv-panel h4{margin:0 24px 10px;font-size:15px;letter-spacing:1.5px;text-transform:uppercase;opacity:.6}
+.tv-opt{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;font-size:18px}
+.tv-opt.sel{background:rgba(255,255,255,.1);box-shadow:inset 4px 0 0 var(--accent)}
+.tv-opt .v{font-weight:600;display:flex;align-items:center;gap:10px}
+.tv-opt.sel .v:before{content:'\25C0';font-size:12px;opacity:.6}.tv-opt.sel .v:after{content:'\25B6';font-size:12px;opacity:.6}
+.tv-opt.act.sel .v:before,.tv-opt.act.sel .v:after{content:none}
+.tv-sw{display:inline-block;width:16px;height:16px;border-radius:50%;border:2px solid #fff}
+.tv-panel p{margin:10px 24px 0;font-size:13px;opacity:.5}
+.tv-ticker{position:absolute;left:0;right:0;top:0;height:40px;display:flex;align-items:stretch;background:linear-gradient(180deg,rgba(8,10,16,.92),rgba(8,10,16,.78));border-bottom:2px solid var(--accent);overflow:hidden;z-index:3;font-size:17px}
 .tv-tk-tag{flex:0 0 auto;display:flex;align-items:center;padding:0 18px 0 56px;background:var(--accent);color:#fff;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;font-size:14px;clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,0 100%);padding-right:30px}
 .tv-tk-tag b{font-weight:300;margin-left:10px;letter-spacing:0;font-variant-numeric:tabular-nums;font-size:16px}
 .tv-tk-win{position:relative;flex:1;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 40px,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(90deg,transparent,#000 40px,#000 calc(100% - 40px),transparent)}
@@ -78,20 +90,21 @@ function normalize(c){
   c=c&&typeof c==='object'?c:{};
   var w=c.widgets||{};
   return {title:String(c.title||'Home'),accent:hex(c.accent,'#4f8cff'),bg:BGS.indexOf(c.bg)>=0?c.bg:'midnight',
-    size:SIZES[c.size]?c.size:'medium',fx:FX.indexOf(c.fx)>=0?c.fx:'none',matchAccent:!!c.matchAccent,showWidgets:c.showWidgets!==false,widgetStyle:c.widgetStyle==='ticker'?'ticker':'tiles',
+    size:SIZES[c.size]?c.size:'medium',fx:FX.indexOf(c.fx)>=0?c.fx:'none',matchAccent:!!c.matchAccent,showWidgets:c.showWidgets!==false,widgetStyle:c.widgetStyle==='ticker'?'ticker':'tiles',installedRow:c.installedRow!==false,
     widgets:{today:Array.isArray(w.today)?w.today.map(String):[],weather:String(w.weather||''),game:String(w.game||''),news:Array.isArray(w.news)?w.news.map(String):[]},
     rows:(Array.isArray(c.rows)?c.rows:[]).map(function(r){return{id:String(r.id||uid()),name:String(r.name||'Row'),wall:WALLS[r.wall]?r.wall:'',
-      tiles:(Array.isArray(r.tiles)?r.tiles:[]).map(function(t){return{id:String(t.id||uid()),label:String(t.label||'Tile'),url:String(t.url||''),color:hex(t.color,'#4f8cff'),kind:KINDS.indexOf(t.kind)>=0?t.kind:'web'}})}})};
+      tiles:(Array.isArray(r.tiles)?r.tiles:[]).map(function(t){return{id:String(t.id||uid()),label:String(t.label||'Tile'),url:String(t.url||''),color:hex(t.color,'#4f8cff'),kind:KINDS.indexOf(t.kind)>=0?t.kind:'web',pkg:String(t.pkg||'')}})}})};
 }
 function render(cfg,status){
   status=status||{};var w=cfg.widgets;
   var tk=cfg.showWidgets&&cfg.widgetStyle==='ticker';
   var h='<div class="tv-stage tv-bg-'+esc(cfg.bg)+(tk?' has-ticker':'')+'" style="--accent:'+esc(cfg.accent)+';--tw:'+(SIZES[cfg.size]||248)+'px" data-accent="'+esc(cfg.accent)+'" data-match="'+(cfg.matchAccent?1:0)+'">';
   if(WALLS[cfg.fx]&&WALLS[cfg.fx].video)h+='<video class="tv-vid" src="'+WALLS[cfg.fx].video+'" poster="'+WALLS[cfg.fx].poster+'" autoplay muted loop playsinline></video>';
-  var used={};cfg.rows.forEach(function(r){if(r.wall&&!used[r.wall]){used[r.wall]=1;var W=WALLS[r.wall];h+='<div class="tv-wall" data-w="'+r.wall+'" style="background:'+W.bg+'">'+(W.video?'<video src="'+W.video+'" muted loop playsinline preload="none"></video>':'')+'</div>'}});
+  var used={};cfg.rows.forEach(function(r){if(cfg.rowWalls!==false&&r.wall&&!used[r.wall]){used[r.wall]=1;var W=WALLS[r.wall];h+='<div class="tv-wall" data-w="'+r.wall+'" style="background:'+W.bg+'">'+(W.video?'<video src="'+W.video+'" muted loop playsinline preload="none"></video>':'')+'</div>'}});
   h+='<div class="tv-glow"></div>';
   if(cfg.fx==='drift')h+='<div class="tv-drift"></div>';
   else if(cfg.fx==='snow'||cfg.fx==='stars')h+='<canvas class="tv-fx" data-fx="'+cfg.fx+'" width="640" height="360"></canvas>';
+  if(cfg._gear)h+='<div class="tv-gear">&#9881; Theme</div>';
   h+='<div class="tv-top"><div><div class="tv-title">'+esc(cfg.title)+'</div><div class="tv-date">'+dateStr()+'</div></div><div class="tv-clock">'+timeStr()+'</div></div>';
   if(tk){
     var items=[];w.today.filter(function(x){return x.trim()}).forEach(function(x){items.push(['Today',x])});
@@ -113,7 +126,7 @@ function render(cfg,status){
     h+='<section class="tv-row" data-wall="'+row.wall+'"><h3>'+esc(row.name)+(status[row.id]==='new'?'<span class="tv-badge new">NEW</span>':'')+'</h3><div class="tv-track">';
     row.tiles.forEach(function(t,c){
       var st=status[t.id];
-      h+='<a class="tv-tile" href="'+esc(safeUrl(t.url))+'" data-r="'+r+'" data-c="'+c+'" style="background:linear-gradient(135deg,'+t.color+','+shade(t.color,-0.55)+')">'+
+      h+='<a class="tv-tile" href="'+esc(/^app:\/\//.test(t.url)?t.url:safeUrl(t.url))+'" data-kind="'+t.kind+'" data-pkg="'+esc(t.pkg)+'" data-r="'+r+'" data-c="'+c+'" style="background:linear-gradient(135deg,'+t.color+','+shade(t.color,-0.55)+')">'+
         '<span class="tv-mono">'+esc((t.label.trim()||'?').charAt(0).toUpperCase())+'</span><span class="tv-label">'+esc(t.label)+'</span>'+
         (t.kind!=='web'?'<span class="tv-kind">'+(t.kind==='app'?'App':'↗ Deep link')+'</span>':'')+(st?'<span class="tv-badge '+st+'">'+(st==='new'?'NEW':'EDITED')+'</span>':'')+'</a>';
     });
@@ -126,7 +139,8 @@ function nav(host,onOpen){
   var r=0,c=0;
   function groups(){var g=[],last=null;host.querySelectorAll('.tv-tile').forEach(function(t){if(t.dataset.r!==last){g.push([]);last=t.dataset.r}g[g.length-1].push(t)});return g}
   function apply(){
-    host.querySelectorAll('.tv-tile.focus').forEach(function(e){e.classList.remove('focus')});
+    host.querySelectorAll('.tv-tile.focus,.tv-gear.focus').forEach(function(e){e.classList.remove('focus')});
+    var gear=host.querySelector('.tv-gear');if(r<0){if(gear){gear.classList.add('focus');return gear}r=0}
     var g=groups();if(!g.length)return null;
     r=Math.max(0,Math.min(r,g.length-1));c=Math.max(0,Math.min(c,g[r].length-1));
     var el=g[r][c];el.classList.add('focus');
@@ -155,19 +169,69 @@ function nav(host,onOpen){
       if(k==='ArrowLeft')c--;else if(k==='ArrowRight')c++;else if(k==='ArrowUp')r--;else if(k==='ArrowDown')r++;
       else if(k==='Enter'||k===' '){var el=apply();if(el&&onOpen)onOpen(el);return true}
       else return false;
-      if(r<0)r=0;if(c<0)c=0;apply();return true;
+      if(r<-1)r=-1;if(r<0&&!host.querySelector('.tv-gear'))r=0;if(c<0)c=0;apply();return true;
     }
   };
 }
+function openTile(el){if(el.classList.contains('tv-gear')){togglePanel();return}if(window.FireTV){FireTV.open(el.getAttribute('href'),el.dataset.pkg||'',el.dataset.kind||'web')}else el.click()}
+var OVK='tv-theme',bootArgs=null;
+function loadOv(){try{return JSON.parse(localStorage.getItem(OVK))||{}}catch(e){return {}}}
+function saveOv(o){try{localStorage.setItem(OVK,JSON.stringify(o))}catch(e){}}
+var ACCENTS=['#4f8cff','#38bdf8','#a78bfa','#f472b6','#fb923c','#facc15','#4ade80','#f43f5e','#e5e7eb'];
+function panelOpts(cfg){
+  var wl=FX.map(function(k){return{v:k,t:k==='none'?'Off':k==='drift'?'Colour drift':k==='snow'?'Snowfall':k==='stars'?'Starfield':WALLS[k].name.replace(/^Video: /,'')}});
+  var acc=ACCENTS.indexOf(cfg.accent)<0?[cfg.accent].concat(ACCENTS):ACCENTS;
+  return [
+    {k:'fx',label:'Wallpaper',vals:wl},
+    {k:'bg',label:'Background',vals:BGS.map(function(b){return{v:b,t:b.charAt(0).toUpperCase()+b.slice(1)}})},
+    {k:'accent',label:'Highlight colour',vals:acc.map(function(a){return{v:a,t:'<span class="tv-sw" style="background:'+a+'"></span>'}})},
+    {k:'wmode',label:'Widgets',vals:[{v:'ticker',t:'Ticker'},{v:'tiles',t:'Tiles'},{v:'off',t:'Hidden'}]},
+    {k:'rowWalls',label:'Row wallpapers',vals:[{v:true,t:'On'},{v:false,t:'Off'}]},
+    {k:'size',label:'Tile size',vals:['small','medium','large'].map(function(s){return{v:s,t:s.charAt(0).toUpperCase()+s.slice(1)}})},
+    {k:'_reset',label:'Reset to default',act:1},
+    {k:'_close',label:'Done',act:1}];
+}
+var panel={open:false,sel:0};
+function curVal(cfg,k){if(k==='wmode')return cfg.showWidgets?cfg.widgetStyle:'off';if(k==='rowWalls')return cfg.rowWalls!==false;return cfg[k]}
+function drawPanel(){
+  if(!bootArgs)return;var root=bootArgs[0],stage=root.querySelector('.tv-stage');if(!stage)return;
+  var old=stage.querySelector('.tv-panel');if(old)old.remove();if(!panel.open)return;
+  var cfg=root._cfg,ops=panelOpts(cfg),h='<div class="tv-panel"><h4>Theme</h4>';
+  ops.forEach(function(o,i){var vt='';if(!o.act){var cv=curVal(cfg,o.k),m=o.vals.filter(function(x){return x.v===cv})[0];vt=m?m.t:esc(String(cv))}
+    h+='<div class="tv-opt'+(o.act?' act':'')+(i===panel.sel?' sel':'')+'"><span>'+o.label+'</span><span class="v">'+vt+'</span></div>'});
+  h+='<p>&#9650;&#9660; choose &middot; &#9664;&#9654; change &middot; OK on Done to close. Saved on this TV.</p></div>';
+  stage.insertAdjacentHTML('beforeend',h);
+}
+function togglePanel(force){panel.open=force===undefined?!panel.open:force;if(panel.open)panel.sel=0;drawPanel();return panel.open}
+function panelKey(e){
+  var root=bootArgs[0],cfg=root._cfg,ops=panelOpts(cfg),o=ops[panel.sel],k=e.key;
+  if(k==='ArrowUp'){panel.sel=Math.max(0,panel.sel-1);drawPanel();return true}
+  if(k==='ArrowDown'){panel.sel=Math.min(ops.length-1,panel.sel+1);drawPanel();return true}
+  if(k==='Escape'||k==='Backspace'||k==='GoBack'){togglePanel(false);return true}
+  if(k==='Enter'||k===' '){if(o.k==='_reset'){saveOv({});rebuild()}else togglePanel(false);return true}
+  if((k==='ArrowLeft'||k==='ArrowRight')&&!o.act){
+    var cv=curVal(cfg,o.k),i=0;o.vals.forEach(function(x,j){if(x.v===cv)i=j});
+    i=(i+(k==='ArrowRight'?1:-1)+o.vals.length)%o.vals.length;var nv=o.vals[i].v,ov=loadOv();
+    if(o.k==='wmode'){ov.showWidgets=nv!=='off';if(nv!=='off')ov.widgetStyle=nv}else ov[o.k]=nv;
+    saveOv(ov);rebuild();return true}
+  return true;
+}
+function rebuild(){if(!bootArgs)return;var keep=panel.open,sel=panel.sel;boot.apply(null,bootArgs);panel.open=keep;panel.sel=sel;drawPanel()}
 function boot(root,cfg,opts){
-  opts=opts||{};cfg=normalize(cfg);
+  opts=opts||{};bootArgs=[root,cfg,opts];
+  var ov=opts.noTheme?{}:loadOv(),merged={};for(var a in cfg)merged[a]=cfg[a];for(var b in ov)merged[b]=ov[b];
+  cfg=normalize(merged);if(ov.rowWalls===false)cfg.rowWalls=false;cfg._gear=!opts.noTheme;root._cfg=cfg;
+  if(window.FireTV&&cfg.installedRow){try{var apps=JSON.parse(FireTV.apps());if(apps.length)cfg.rows.push({id:'installed',name:'My apps',wall:'',
+    tiles:apps.map(function(a){var hsh=0;for(var i=0;i<a.label.length;i++)hsh=(hsh*31+a.label.charCodeAt(i))|0;
+      return{id:'app-'+a.pkg,label:a.label,url:'app://'+a.pkg,color:'#'+('00000'+((hsh&0x7f7f7f)+0x202020).toString(16)).slice(-6),kind:'app',pkg:a.pkg}})})}catch(e){}}
   root.innerHTML=render(cfg);
   var stage=root.firstElementChild;
   function fit(){var s=Math.min(innerWidth/1280,innerHeight/720);stage.style.transform='translate('+(innerWidth-1280*s)/2+'px,'+(innerHeight-720*s)/2+'px) scale('+s+')'}
   fit();
-  var n=nav(root,function(el){el.click()});n.apply();
+  var n=nav(root,openTile);n.apply();
+  if(window.FireTV&&!root._clk){root._clk=1;root.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('.tv-tile');if(t){e.preventDefault();openTile(t)}})}
   if(!root._bound){root._bound=true;addEventListener('resize',function(){if(root._fit)root._fit()});
-    addEventListener('keydown',function(e){if(root._nav&&root._active&&root._active()&&root._nav.key(e))e.preventDefault()})}
+    addEventListener('keydown',function(e){if(!root._active||!root._active())return;if(panel.open&&bootArgs&&bootArgs[0]===root){panelKey(e);e.preventDefault();return}if(root._nav&&root._nav.key(e))e.preventDefault()})}
   root._fit=fit;root._nav=n;root._active=opts.active||function(){return true};
   return n;
 }
@@ -183,7 +247,7 @@ function fxLoop(t){requestAnimationFrame(fxLoop);if(t-lastFx<33)return;lastFx=t;
     ctx.globalAlpha=1})}
 requestAnimationFrame(fxLoop);
 setInterval(function(){document.querySelectorAll('.tv-clock,.tv-tk-clock').forEach(function(e){e.textContent=timeStr()})},15000);
-window.TV={WALLS:WALLS,render:render,nav:nav,boot:boot,normalize:normalize,uid:uid,safeUrl:safeUrl};
+window.TV={togglePanel:togglePanel,closePanel:function(){return togglePanel(false)},WALLS:WALLS,render:render,nav:nav,boot:boot,normalize:normalize,uid:uid,safeUrl:safeUrl};
 })();
 </script>
 <script>TV.boot(document.getElementById("tvroot"),{"title":"Home","accent":"#4f8cff","bg":"midnight","size":"medium","fx":"snow","matchAccent":true,"showWidgets":true,"widgetStyle":"ticker","widgets":{"today":["9:00  Stand-up","12:30  Lunch","6:45  Hockey practice"],"weather":"-6°C · Light snow","game":"Sat 7:15 PM vs Hawks"},"rows":[{"id":"pcwbiqy","name":"Watch","wall":"night","tiles":[{"id":"cyfwhp0","label":"Netflix","url":"https://www.netflix.com","color":"#c4101a","kind":"app"},{"id":"7trl12y","label":"YouTube","url":"https://www.youtube.com","color":"#e5002d","kind":"app"},{"id":"9nhvuxo","label":"Prime Video","url":"https://www.primevideo.com","color":"#1399ff","kind":"app"},{"id":"r6uxjty","label":"Disney+","url":"https://www.disneyplus.com","color":"#1f3fbf","kind":"app"},{"id":"x20xwdv","label":"Crave","url":"https://www.crave.ca","color":"#2b2b8a","kind":"app"},{"id":"sfut7bw","label":"Sportsnet+","url":"https://www.sportsnet.ca/plus","color":"#c21d24","kind":"app"}]},{"id":"xb2c3wg","name":"Team","wall":"rink","tiles":[{"id":"5sxvfgd","label":"Live game stream","url":"https://www.youtube.com","color":"#15803d","kind":"deeplink"},{"id":"8uhse8u","label":"TeamSnap","url":"https://go.teamsnap.com","color":"#e8701a","kind":"app"},{"id":"iuyof2d","label":"Highlights","url":"https://www.youtube.com","color":"#0e7490","kind":"deeplink"}]},{"id":"x00gklw","name":"Assistant","wall":"sunset","tiles":[{"id":"9ii7yr8","label":"Ask Claude","url":"https://claude.ai/new","color":"#d97757","kind":"web"},{"id":"pr6u0d9","label":"Calendar","url":"https://outlook.live.com/calendar","color":"#0f6cbd","kind":"web"}]},{"id":"zwxpu4c","name":"Testing","wall":"","tiles":[{"id":"oi7kkar","label":"New link to try","url":"https://example.com","color":"#6d28d9","kind":"web"}]}]});</script>
