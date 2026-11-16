@@ -2,6 +2,17 @@
 
 Custom home screen project for a Fire TV Stick 4K Max.
 
+## Links
+
+- **TV page (live):** https://pointvalley.github.io/firestick/ (open in Silk on the Firestick and bookmark it)
+- **Sandbox:** https://pointvalley.github.io/firestick/sandbox.html (design and preview on PC)
+- **Wallpaper loops:** [wallpapers/](wallpapers/)
+- **Loop recorder:** [loop-recorder/](loop-recorder/)
+
+> Use the GitHub sandbox link above. The older claude.ai sandbox doesn't support video loops or the ticker.
+
+## Files
+
 | Path | What it is |
 |---|---|
 | `index.html` | The TV page. Open `https://pointvalley.github.io/firestick/` in Silk on the Firestick and bookmark it. |
